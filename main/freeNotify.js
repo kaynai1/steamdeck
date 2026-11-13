@@ -77,26 +77,51 @@ async function runOnce() {
   writeSeen(items.map((x) => x.id));
 
   if (firstTime || !fresh.length) return { fresh: fresh.length, firstTime };
-  if (!Notification.isSupported()) return { fresh: fresh.length, unsupported: true };
-
   const top = fresh.slice().sort((a, b) => (a.endAt || 0) - (b.endAt || 0));
   const names = top.slice(0, 3).map((x) => `《${x.title}》`).join('、');
   const more = top.length > 3 ? ` 等 ${top.length} 款` : '';
   const endAt = top.find((x) => x.endAt);
+
+  /* 按平台分组：Epic / Steam / GOG 各自计数，用户一眼看出哪个平台上了新免费游戏 */
+  const platName = { epic: 'Epic', steam: 'Steam', gog: 'GOG' };
+  const platCount = {};
+  for (const x of fresh) {
+    const p = platName[x.platform] || '其他';
+    platCount[p] = (platCount[p] || 0) + 1;
+  }
+  const platLine = Object.entries(platCount)
+    .map(([p, n]) => `${p} ${n} 款`)
+    .join(' · ');
+
+  const title = `新增 ${fresh.length} 款免费游戏（${platLine}）`;
   const body = `${names}${more}${endAt ? ` · ${fmtEnd(endAt.endAt)} 截止` : ''}`;
 
-  const n = new Notification({
-    title: `新增 ${fresh.length} 款免费游戏`,
-    body,
-    icon: iconPath || undefined,
-    silent: false,
-  });
-  n.on('click', () => {
-    try {
-      if (onOpen) onOpen();
-    } catch { /* ignore */ }
-  });
-  n.show();
+  // 桌面通知（系统不支持时跳过，但不影响下面的手机/QQ 推送）
+  if (Notification.isSupported()) {
+    const n = new Notification({
+      title,
+      body,
+      icon: iconPath || undefined,
+      silent: false,
+    });
+    n.on('click', () => {
+      try {
+        if (onOpen) onOpen();
+      } catch { /* ignore */ }
+    });
+    n.show();
+  }
+
+  // 手机/QQ 推送（Epic / Steam / GOG 的新免费游戏都会走这里）
+  try {
+    require('./notify').send(title, body, {
+      onClick: () => {
+        try {
+          if (onOpen) onOpen();
+        } catch { /* ignore */ }
+      },
+    }).catch(() => {});
+  } catch { /* 通知模块异常不影响后续检查 */ }
   return { fresh: fresh.length };
 }
 

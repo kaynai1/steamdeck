@@ -123,7 +123,6 @@ function diffApp(sid, name, appId, prev, cur, at) {
 
 function notifyChanges(changes) {
   if (!changes.length) return;
-  if (!Notification.isSupported()) return;
   const byAcc = new Map();
   for (const c of changes) {
     const arr = byAcc.get(c.account) || [];
@@ -140,19 +139,38 @@ function notifyChanges(changes) {
     lines.push(`${acc}：${total > 0 ? '+' : ''}${total} 件（${sample}${arr.length > 2 ? ' 等' : ''}）`);
   }
   if (byAcc.size > 3) lines.push(`另有 ${byAcc.size - 3} 个账号有变动`);
-  const n = new Notification({
-    title: `库存变动 · ${changes.length} 项`,
-    body: lines.join('\n'),
-    icon: iconPath || undefined,
-  });
-  n.on('click', () => {
-    try {
-      if (onOpen) onOpen();
-    } catch {
-      /* ignore */
-    }
-  });
-  n.show();
+  const title = `库存变动 · ${changes.length} 项`;
+  const body = lines.join('\n');
+
+  // 桌面通知
+  if (Notification.isSupported()) {
+    const n = new Notification({
+      title,
+      body,
+      icon: iconPath || undefined,
+    });
+    n.on('click', () => {
+      try {
+        if (onOpen) onOpen();
+      } catch {
+        /* ignore */
+      }
+    });
+    n.show();
+  }
+
+  // 手机/QQ 推送（走用户在「通知外发」里选的渠道）
+  try {
+    require('./notify').send(title, body, {
+      onClick: () => {
+        try {
+          if (onOpen) onOpen();
+        } catch {
+          /* ignore */
+        }
+      },
+    }).catch(() => {});
+  } catch { /* 通知模块异常不影响监控 */ }
   logger.info('库存变动通知', { items: changes.length, accounts: byAcc.size });
 }
 

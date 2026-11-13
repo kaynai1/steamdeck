@@ -89,10 +89,13 @@ const DEFAULTS = {
   ladderMaxSteps: 3,
   ladderMaxPerRun: 5,
   ladderIntervalMin: 60,
-  // 更新检查：用户自填的 JSON 地址（version / url / notes）
+  // 更新检查：默认走 GitHub Releases；自填 JSON 地址后优先用自定义源
   updateUrl: '',
+  updateAutoEnabled: true,
   updateLastCheckAt: 0,
   updateLastVersion: '',
+  // 登录窗口 / Steam 社区请求代理（steamcommunity.com 直连不通时填，如 127.0.0.1:7890）
+  loginProxy: '',
   // 窗口位置与大小（关闭/拖动时自动保存）
   winBounds: null,
   // 首次使用向导是否已完成（完成后不再自动弹出）

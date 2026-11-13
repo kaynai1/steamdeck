@@ -33,7 +33,7 @@ const S = {
   lib: [],
   libApp: 'all',
   libQuery: '',
-  libShape: 'portrait',
+  libShape: 'wide',
   libSource: 'steam',
   epicLib: { items: [], loading: false, accountId: '', at: 0, error: '', partial: false },
   gogLib: { items: [], loading: false, at: 0, error: '', linked: false },
@@ -725,14 +725,78 @@ if ($('#ordConfirm')) {
 }
 
 /* 版本更新检查 */
+function updatePillText() {
+  const m = $('#updateModal');
+  if (!m) return;
+  const ver = ($('#ver') && $('#ver').textContent) || (S.info && S.info.version) || '';
+  const pill = m.querySelector('.update-head .pill');
+  if (pill && ver) pill.textContent = `v${String(ver).replace(/^v/i, '')}`;
+}
+
+/** 把检查结果渲染到弹窗顶部的状态行 */
+function renderUpdateResult(d) {
+  const el = $('#updateCheckResult');
+  if (!el) return;
+  if (!d) {
+    el.innerHTML = '';
+    return;
+  }
+  if (d.hasUpdate) {
+    el.innerHTML =
+      `<div style="color:var(--green);font-weight:600;font-size:12.5px;margin-bottom:4px">发现新版本 v${esc(
+        d.latest
+      )}（当前 v${esc(d.current)}）</div>` +
+      (d.notes ? `<div class="dim2" style="font-size:11.5px;margin-bottom:6px;white-space:pre-wrap">${esc(String(d.notes).slice(0, 500))}</div>` : '') +
+      (d.url
+        ? `<button class="btn p" id="updateGoBtn" style="height:28px">打开下载页</button>`
+        : `<div class="dim2" style="font-size:11.5px">发布页没有找到安装包，可到仓库 Releases 页手动下载</div>`);
+    const go = $('#updateGoBtn');
+    if (go) {
+      go.onclick = async () => {
+        const r = await call(SD.update.open(d.url), { silent: true });
+        if (!r.ok) toast(r.message || '打开下载页失败', true);
+      };
+    }
+  } else if (d.noRelease) {
+    el.innerHTML =
+      `<div class="dim2" style="font-size:11.5px">当前 v${esc(d.current)} · 发布仓库还没有 Release，暂时无法联网检查新版</div>`;
+  } else {
+    el.innerHTML =
+      `<div style="color:var(--green);font-size:12.5px">已是最新版本 v${esc(d.current)}</div>`;
+  }
+}
+
+/** 真正的联网检查：默认用 GitHub Releases，填了自定义更新源则优先自定义 */
+async function runUpdateCheck(btn) {
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '检查中…';
+  const el = $('#updateCheckResult');
+  if (el) el.innerHTML = '<div class="dim2" style="font-size:11.5px">正在连接更新源…</div>';
+  const r = await call(SD.update.check(), { silent: true });
+  btn.disabled = false;
+  btn.textContent = old;
+  if (!r.ok) {
+    if (el) el.innerHTML = `<div style="color:var(--red);font-size:11.5px">检查失败：${esc(r.message || '网络错误')}</div>`;
+    toast(r.message || '检查更新失败', true);
+    return;
+  }
+  const d = r.data || {};
+  renderUpdateResult(d);
+  if (d.hasUpdate) toast(`发现新版本 v${d.latest}`);
+  else if (!d.noRelease) toast('已是最新版本');
+  updateRefresh();
+}
+
 function openUpdateModal() {
   const m = $('#updateModal');
   if (!m) return;
   m.classList.add('on');
-  const ver = ($('#ver') && $('#ver').textContent) || '';
-  const pill = m.querySelector('.update-head .pill');
-  if (pill && ver && ver !== '—') pill.textContent = `${ver} · 最新旗舰版`;
+  updatePillText();
+  renderUpdateResult(null);
   log('已打开版本更新检查', 'b');
+  const btn = $('#btnCheckAgain');
+  if (btn) runUpdateCheck(btn);
 }
 function closeUpdateModal() {
   const m = $('#updateModal');
@@ -747,18 +811,8 @@ if ($('#updateModal')) {
   });
 }
 if ($('#btnCheckAgain')) {
-  $('#btnCheckAgain').onclick = () => {
-    const btn = $('#btnCheckAgain');
-    const old = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '检查中…';
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = old;
-      const v = (S.info && S.info.version) || '';
-      toast(`已是最新版本${v ? ' v' + v : ''}，无需更新`);
-      log('版本检查完成：已是最新版本', 'g');
-    }, 900);
+  $('#btnCheckAgain').onclick = function () {
+    runUpdateCheck(this);
   };
 }
 if ($('#btnOpenLogs')) {
@@ -804,6 +858,7 @@ function fillSettingsForm() {
   const s = S.settings || {};
   syncThemeSeg(currentTheme);
   $('#setSteamPath').value = s.steamPath || '';
+  if ($('#setLoginProxy')) $('#setLoginProxy').value = s.loginProxy || '';
   $('#setQuoteInt').value = s.quoteIntervalMs || 1800;
   $('#setSellInt').value = s.sellIntervalMs || 4000;
   $('#setGuard').value = s.guardMinRatio || 0.7;
@@ -857,6 +912,7 @@ function fillSettingsForm() {
   if ($('#setAiModel')) $('#setAiModel').value = s.aiModel || 'gpt-4o-mini';
   if ($('#setExtOn')) $('#setExtOn').checked = s.extEnabled === true;
   if ($('#setUpdateUrl')) $('#setUpdateUrl').value = s.updateUrl || '';
+  if ($('#setUpdateAuto')) $('#setUpdateAuto').checked = s.updateAutoEnabled !== false;
   sessionStatusRefresh();
   tradeStatusRefresh();
   saleRefresh();
@@ -953,10 +1009,10 @@ function notifyChannelFields(ch) {
     dingtalk: ['nfWebhook'],
     serverchan: ['nfScKey'],
     webhook: ['nfWebhook'],
-    qqbot: ['nfQqAppId', 'nfQqSecret', 'nfQqChannel'],
+    qqbot: ['nfQqAppId', 'nfQqSecret', 'nfQqDirect', 'nfQqChannel'],
   };
   const show = new Set(map[ch] || []);
-  for (const id of ['nfTgToken', 'nfTgChat', 'nfWebhook', 'nfScKey', 'nfQqAppId', 'nfQqSecret', 'nfQqChannel']) {
+  for (const id of ['nfTgToken', 'nfTgChat', 'nfWebhook', 'nfScKey', 'nfQqAppId', 'nfQqSecret', 'nfQqDirect', 'nfQqChannel']) {
     const el = $('#' + id);
     if (el) el.style.display = show.has(id) ? '' : 'none';
   }
@@ -992,6 +1048,26 @@ async function notifyRefresh() {
     $('#setQqSecret').placeholder = d.qqSecret ? '已保存（留空不修改）' : '在 q.qq.com 机器人设置里查看';
   }
   if ($('#clrQqSecret')) $('#clrQqSecret').style.display = d.qqSecret ? '' : 'none';
+  /* 私聊/群聊绑定状态 */
+  const binds = d.qqBinds || {};
+  const c2c = binds.c2c;
+  const gw = d.qqGateway || {};
+  const bindEl = $('#qqBindStatus');
+  if (bindEl) {
+    if (c2c) {
+      const alive = c2c.alive ? '额度正常' : '额度可能已过期，给机器人发条消息刷新';
+      const gwOk = gw.connected ? ' · 已连接腾讯服务器' : gw.running ? ' · 连接中…' : '';
+      bindEl.innerHTML =
+        `✅ 已绑定私聊推送（openid 尾号 ${esc(c2c.openidTail)} · ${new Date(c2c.lastMsgAt).toLocaleString(
+          'zh-CN'
+        )}${gwOk}）<br><span class="dim2">${alive}</span>`;
+    } else if (gw.running) {
+      bindEl.textContent = '已连上腾讯服务器，正在等你在 QQ 里给机器人发消息…（打开 QQ，搜到你的机器人，随便发一条消息即可完成绑定）';
+    } else {
+      bindEl.textContent = '填好上面两项后点「连接机器人」，然后打开 QQ，在消息列表搜到你的机器人，随便给它发一条消息（比如「绑定」），这里会自动显示绑定成功。';
+    }
+  }
+  if ($('#qqUnbindC2c')) $('#qqUnbindC2c').style.display = c2c ? '' : 'none';
   if ($('#setQqChannelId')) $('#setQqChannelId').value = d.qqChannelId || '';
   if (d.qqChannelId) qqPicked = { guildId: d.qqGuildId || '', channelId: d.qqChannelId, name: d.qqChannelName || '' };
   renderQqPicks(qqTargets);
@@ -1075,6 +1151,38 @@ bindNotifyClear('clrWebhook', 'webhook', 'Webhook 地址');
 bindNotifyClear('clrScKey', 'scKey', 'Server酱 SendKey');
 bindNotifyClear('clrQqSecret', 'qqSecret', 'QQ AppSecret');
 
+/* 私聊绑定：连接机器人（保存凭据 + 重启实时网关）与解绑 */
+if ($('#qqConnect')) {
+  $('#qqConnect').onclick = async () => {
+    const btn = $('#qqConnect');
+    const old = btn.textContent;
+    await notifySave();
+    btn.disabled = true;
+    btn.textContent = '连接中…';
+    const r = await call(SD.notify.qqRestart(), { silent: true });
+    btn.disabled = false;
+    btn.textContent = old;
+    const d = r.data || {};
+    if (!r.ok || d.ok === false) {
+      const msg = d.message || r.message || '连接失败，请检查 AppID / AppSecret 和网络';
+      toast(msg, true);
+      const st = $('#qqBindStatus');
+      if (st) st.textContent = msg;
+      notifyRefresh();
+      return;
+    }
+    toast('已连上腾讯服务器。现在打开 QQ，给机器人发一条消息完成绑定');
+    notifyRefresh();
+  };
+}
+if ($('#qqUnbindC2c')) {
+  $('#qqUnbindC2c').onclick = async () => {
+    const r = await call(SD.notify.qqUnbind('c2c'), { silent: true });
+    if (r.ok) toast('已解除私聊绑定');
+    notifyRefresh();
+  };
+}
+
 if ($('#qqFetchChannels')) {
   $('#qqFetchChannels').onclick = async () => {
     // 先把 AppID / AppSecret 存进主进程，否则拉取时还没有凭据
@@ -1137,6 +1245,7 @@ async function dropStatusRefresh() {
 if ($('#dropCheck')) {
   $('#dropCheck').onclick = async () => {
     if (!SD.dropWatch) return;
+    await saveSettings({ keepOpen: true, silent: true });
     const btn = $('#dropCheck');
     const old = btn.textContent;
     btn.disabled = true;
@@ -1174,6 +1283,7 @@ async function saleRefresh() {
 if ($('#saleCheck')) {
   $('#saleCheck').onclick = async () => {
     if (!SD.saleWatch) return;
+    await saveSettings({ keepOpen: true, silent: true });
     const btn = $('#saleCheck');
     const old = btn.textContent;
     btn.disabled = true;
@@ -1261,7 +1371,7 @@ async function updateRefresh() {
   const d = r.data || {};
   const cur = d.current || '';
   if (!d.url) {
-    st.textContent = `当前 ${cur} · 未配置更新源，不会联网检查`;
+    st.textContent = `当前 ${cur} · 默认从 GitHub Releases 检查（也可在下方填自定义更新源）`;
     return;
   }
   const last = d.last;
@@ -1291,13 +1401,8 @@ if ($('#updateStatus')) {
 
 if ($('#updateCheckBtn')) {
   $('#updateCheckBtn').onclick = async () => {
+    await saveSettings({ keepOpen: true, silent: true });
     const btn = $('#updateCheckBtn');
-    const url = $('#setUpdateUrl') ? $('#setUpdateUrl').value.trim() : '';
-    if (!url) {
-      toast('先填更新源地址', true);
-      return;
-    }
-    await call(SD.settings.set({ updateUrl: url }), { silent: true });
     btn.disabled = true;
     btn.textContent = '检查中…';
     const r = await call(SD.update.check(), { silent: true });
@@ -1307,6 +1412,8 @@ if ($('#updateCheckBtn')) {
       toast(netText(r.message) || '检查失败', true);
     } else if (r.data && r.data.hasUpdate) {
       toast(`发现新版本 ${r.data.latest}`);
+    } else if (r.data && r.data.noRelease) {
+      toast('发布仓库还没有 Release，暂时无法联网检查');
     } else {
       toast('已是最新版本');
     }
@@ -1352,6 +1459,7 @@ async function pgRefresh() {
 
 if ($('#pgRun')) {
   $('#pgRun').onclick = async () => {
+    await saveSettings({ keepOpen: true, silent: true });
     const btn = $('#pgRun');
     btn.disabled = true;
     btn.textContent = '检查中…';
@@ -1491,9 +1599,12 @@ if ($('#noticeClear')) {
   };
 }
 
-$('#setSave').onclick = async () => {
+async function saveSettings(opts = {}) {
+  const keepOpen = opts.keepOpen === true;
+  const silent = opts.silent === true;
   const patch = {
     steamPath: $('#setSteamPath').value.trim() || null,
+    loginProxy: $('#setLoginProxy') ? $('#setLoginProxy').value.trim() : '',
     quoteIntervalMs: Math.max(1200, Number($('#setQuoteInt').value) || 1800),
     sellIntervalMs: Math.max(2000, Number($('#setSellInt').value) || 4000),
     guardMinRatio: Math.min(0.95, Math.max(0.1, Number($('#setGuard').value) || 0.7)),
@@ -1543,13 +1654,16 @@ $('#setSave').onclick = async () => {
     aiApiKey: $('#setAiKey') ? $('#setAiKey').value.trim() : '',
     aiModel: $('#setAiModel') ? $('#setAiModel').value.trim() || 'gpt-4o-mini' : 'gpt-4o-mini',
     extEnabled: $('#setExtOn') ? $('#setExtOn').checked : false,
+    updateAutoEnabled: $('#setUpdateAuto') ? $('#setUpdateAuto').checked : true,
   };
   const r = await call(SD.settings.set(patch));
   if (r.ok) {
     S.settings = r.data;
-    toast('设置已保存');
-    closeDrawer();
-    log('已更新设置', 'b');
+    if (!silent) {
+      toast('设置已保存');
+      log('已更新设置', 'b');
+    }
+    if (!keepOpen) closeDrawer();
     pgRefresh();
     call(SD.tradeWatch.refresh(), { silent: true, noLog: true }).catch(() => {});
     if (SD.saleWatch) call(SD.saleWatch.refresh(), { silent: true, noLog: true }).catch(() => {});
@@ -1562,7 +1676,10 @@ $('#setSave').onclick = async () => {
     extStatusRefresh();
     loadWebPrices();
   }
-};
+  return !!(r && r.ok);
+}
+
+$('#setSave').onclick = () => saveSettings();
 
 /* --------------------------- 登录态 / 报价 / AI --------------------------- */
 
@@ -1583,6 +1700,7 @@ async function sessionStatusRefresh() {
 
 if ($('#sessionCheck')) {
   $('#sessionCheck').onclick = async () => {
+    await saveSettings({ keepOpen: true, silent: true });
     const btn = $('#sessionCheck');
     const old = btn.textContent;
     btn.disabled = true;
@@ -1624,6 +1742,7 @@ async function tradeStatusRefresh() {
 
 if ($('#tradeCheck')) {
   $('#tradeCheck').onclick = async () => {
+    await saveSettings({ keepOpen: true, silent: true });
     const btn = $('#tradeCheck');
     const old = btn.textContent;
     btn.disabled = true;
@@ -1632,7 +1751,7 @@ if ($('#tradeCheck')) {
     btn.disabled = false;
     btn.textContent = old;
     if (!r.ok) toast(r.message || '检查失败', true);
-    else if (r.data && r.data.skipped) toast(r.data.reason || '未检查', true);
+    else if (r.data && r.data.skipped) toast(r.data.reason || '未检查（记得填写 Key 并保存）', true);
     else if (r.data && r.data.error) toast(r.data.error, true);
     else toast(`当前有 ${Number((r.data || {}).count) || 0} 个待处理交易报价`);
     await tradeStatusRefresh();
@@ -1702,9 +1821,13 @@ if ($('#aiQuestion')) {
     }
   });
 }
-if ($('#aiReportBtn')) $('#aiReportBtn').onclick = () => { closeDrawer(); aiDoReport(); };
+if ($('#aiReportBtn')) $('#aiReportBtn').onclick = async () => {
+  await saveSettings({ keepOpen: true, silent: true });
+  aiDoReport();
+};
 if ($('#aiTest')) {
   $('#aiTest').onclick = async () => {
+    await saveSettings({ keepOpen: true, silent: true });
     const btn = $('#aiTest');
     const old = btn.textContent;
     btn.disabled = true;
@@ -1720,6 +1843,50 @@ if ($('#aiTest')) {
     }
     if (el) el.textContent = `接口可用：${(r.data && r.data.model) || ''} 回复「${(r.data && r.data.text) || ''}」`;
     toast('AI 接口可用');
+  };
+}
+
+/* 「获取模型」：先保存当前填的接口地址和 Key，再拉取 /models 让用户点选 */
+if ($('#aiFetchModels')) {
+  $('#aiFetchModels').onclick = async () => {
+    await saveSettings({ keepOpen: true, silent: true });
+    const btn = $('#aiFetchModels');
+    const sel = $('#aiModelPick');
+    const inp = $('#setAiModel');
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '拉取中…';
+    const r = await call(SD.ai.models(), { silent: true, noLog: true });
+    btn.disabled = false;
+    btn.textContent = old;
+    if (!r.ok) {
+      toast(r.message || '拉取模型列表失败', true);
+      return;
+    }
+    const models = (r.data && r.data.models) || [];
+    if (sel) {
+      const cur = inp ? inp.value.trim() : '';
+      sel.innerHTML =
+        `<option value="">共 ${models.length} 个模型，点选一个填入</option>` +
+        models
+          .map(
+            (m) =>
+              `<option value="${esc(m)}" ${m === cur ? 'selected' : ''}>${esc(m)}${
+                m === cur ? '（当前）' : ''
+              }</option>`
+          )
+          .join('');
+      sel.style.display = '';
+      sel.onchange = () => {
+        const v = sel.value;
+        if (v && inp) {
+          inp.value = v;
+          saveSettings({ keepOpen: true, silent: true });
+          toast(`已选用模型 ${v}`);
+        }
+      };
+    }
+    toast(`拉取到 ${models.length} 个模型，在下拉框里选一个`);
   };
 }
 
@@ -1837,8 +2004,29 @@ async function loadInfo() {
 function renderRailFooter() {
   const p = (S.settings && S.settings.steamPath) || (S.info && S.info.steamPath);
   $('#rf').innerHTML = p
-    ? `Steam 路径<br><b>${esc(p)}</b>`
-    : 'Steam 路径<br><b>未探测到，请手动指定</b>';
+    ? `Steam 路径（点击修改）<br><b>${esc(p)}</b>`
+    : 'Steam 路径<br><b>未探测到，点击手动指定</b>';
+}
+
+/* 侧边栏底部的 Steam 路径可直接点击修改，不用再去设置抽屉里找 */
+if ($('#rf')) {
+  $('#rf').style.cursor = 'pointer';
+  $('#rf').onclick = async () => {
+    const r = await call(SD.settings.chooseSteamPath(), { silent: true });
+    if (!r.ok) {
+      toast(r.message || '选择目录失败', true);
+      return;
+    }
+    if (!r.data) return;
+    const ok = await call(SD.settings.set({ steamPath: r.data }), { silent: true });
+    if (ok.ok) {
+      S.settings = ok.data;
+      if ($('#setSteamPath')) $('#setSteamPath').value = r.data;
+      renderRailFooter();
+      toast('Steam 路径已更新');
+      scanAccounts({ quiet: true });
+    }
+  };
 }
 
 /* ---------------------------------- 账号 ---------------------------------- */
@@ -2245,7 +2433,6 @@ async function loadInventory(appIdOverride) {
   const r = await call(SD.inventory.fetch(steamId, appId, null), { noLog: true });
   if (!r.ok) {
     const rawMsg = r.message || (r.error && r.error.message) || '未知错误';
-
     /**
      * 该游戏没有社区市场（Steam 返回 k_EResultNoMatch）。
      * 这类 app 留在下拉里毫无意义，后端已把它记入 noMarketApps，
@@ -3138,6 +3325,38 @@ function monotonePath(xs, ys) {
 }
 
 /**
+ * 稀疏数据点的「波浪」曲线：Catmull-Rom → 三次贝塞尔。
+ * monotonePath 是给几十个密集点防毛刺用的，转折偏"圆弧"；
+ * 7 天这种只有几个点的区间，用它就会显得一边死平、一边突然拱起。
+ * 这里用低张力的 Catmull-Rom：经过每个真实数据点，转折自然，
+ * 上升/下降段带一点曲线感，平段仍保持平直（不伪造波动）。
+ */
+function wavePath(xs, ys, tension = 0.18) {
+  const n = xs.length;
+  if (!n) return '';
+  if (n === 1) return `M${xs[0].toFixed(1)} ${ys[0].toFixed(1)}`;
+  const at = (i) => ({
+    x: xs[Math.max(0, Math.min(n - 1, i))],
+    y: ys[Math.max(0, Math.min(n - 1, i))],
+  });
+  let d = `M${xs[0].toFixed(1)} ${ys[0].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = at(i - 1);
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const p3 = at(i + 2);
+    const c1x = p1.x + (p2.x - p0.x) * tension;
+    const c1y = p1.y + (p2.y - p0.y) * tension;
+    const c2x = p2.x - (p3.x - p1.x) * tension;
+    const c2y = p2.y - (p3.y - p1.y) * tension;
+    d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x.toFixed(
+      1
+    )} ${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
+/**
  * Steam 官方成交价图（价格折线 + 成交量柱）。
  *
  * ★ 这里踩过一个坑：viewBox 固定 660×240 再用 preserveAspectRatio="none" ★
@@ -3255,7 +3474,12 @@ function renderIdtChart(history, days) {
 
   const xs = draw.map((p) => xAt(p.t));
   const ys = draw.map((p) => yP(p.price));
-  const linePath = monotonePath(xs, ys);
+  // 点少（7 天/30 天这种）用低张力波浪曲线，转折自然不生硬；
+  // 点密（一年以上）仍用单调插值，防止锯齿和过冲
+  const linePath =
+    draw.length <= 16
+      ? wavePath(xs, ys, draw.length <= 6 ? 0.14 : 0.18)
+      : monotonePath(xs, ys);
   const baseY = T + priceH;
   const areaPath = `${linePath} L${xs[xs.length - 1].toFixed(1)} ${baseY.toFixed(1)} L${xs[0].toFixed(
     1
@@ -3371,7 +3595,9 @@ function renderIdtChart(history, days) {
     ${volAxis}
     ${bars}
     <path d="${areaPath}" fill="url(#${uid})"/>
-    <path d="${linePath}" fill="none" stroke="#C7D94A" stroke-width="1.7"
+    <path d="${linePath}" fill="none" stroke="#C7D94A" stroke-width="6"
+      stroke-linecap="round" stroke-linejoin="round" opacity=".10"/>
+    <path d="${linePath}" fill="none" stroke="#C7D94A" stroke-width="2"
       stroke-linecap="round" stroke-linejoin="round"/>
     ${dots}
     ${lastDot}
@@ -6199,6 +6425,8 @@ function renderLibrary() {
   // Epic / GOG 的库结构和 Steam 完全不同，走各自的渲染器
   if (S.libSource !== 'steam') return renderForeignLib();
   const box = $('#libBody');
+  // 网格列宽跟随封面形状：横版更宽，竖版更窄（以前从未切换，卡片被挤成窄条）
+  box.className = `ggrid ${S.libShape}`;
   const q = S.libQuery.trim().toLowerCase();
 
   let list = S.lib;
@@ -6231,19 +6459,21 @@ function renderLibrary() {
         // 不足 1 小时显示"0 小时"很怪，单独说清楚
         const mins = Number(g.playtime) || 0;
         const hrs = mins >= 60 ? `${Math.round(mins / 60)} 小时` : mins > 0 ? '不足 1 小时' : '';
-        const badge = g.tradeable ? '<span class="cbadge">可交易</span>' : '';
+        const badge = g.tradeable ? '<span class="stat trade">可交易</span>' : '';
         return `<div class="gcard ${shape}" title="${esc(g.name + ' · AppID ' + g.appId)}">
       <div class="cov">
         <img data-src="${esc(covers[0])}" alt="${esc(shownName)}" loading="lazy" decoding="async"
              data-appid="${esc(String(g.appId))}" data-i="0" onerror="SDCoverErr(this)" />
         <span class="covfb">${esc(fallback)}</span>
+        <span class="plat">Steam</span>
         ${badge}
       </div>
       <div class="ib2">
         <div class="nm${unnamed ? ' noname' : ''}">${esc(shownName)}</div>
-        <div class="gid">AppID ${esc(String(g.appId))}</div>
-        <div class="sub">
-          <span>${g.installed ? '已安装' : '未安装'}${hrs ? ' · ' + esc(hrs) : ''}</span>
+        <div class="meta">
+          <span class="gtag">AppID ${esc(String(g.appId))}</span>
+          ${g.installed ? '<span class="gtag ok">已安装</span>' : ''}
+          ${hrs ? `<span>${esc(hrs)}</span>` : ''}
         </div>
       </div>
       <div class="gact-row">
@@ -6310,6 +6540,7 @@ function renderGogBar() {
 function renderForeignLib() {
   const box = $('#libBody');
   if (!box) return;
+  box.className = 'ggrid portrait';
   const src = S.libSource;
   const st = src === 'epic' ? S.epicLib : S.gogLib;
   const q = S.libQuery.trim().toLowerCase();
@@ -6345,11 +6576,14 @@ function renderForeignLib() {
       <div class="cov">
         ${g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />` : ''}
         <span class="covfb">${esc(fb)}</span>
+        <span class="plat">${src === 'epic' ? 'Epic' : 'GOG'}</span>
       </div>
       <div class="ib2">
         <div class="nm">${esc(g.title)}</div>
-        <div class="gid">${src === 'epic' ? 'Epic Games' : 'GOG'}</div>
-        <div class="sub"><span>${esc(g.desc || '').slice(0, 40)}</span></div>
+        <div class="meta">
+          <span class="gtag">${src === 'epic' ? 'Epic Games' : 'GOG'}</span>
+          ${g.desc ? `<span>${esc(g.desc || '').slice(0, 40)}</span>` : ''}
+        </div>
       </div>
       <div class="gact-row">
         <button class="btn s gact-btn" data-store-url="${esc(g.url)}">打开商店页</button>

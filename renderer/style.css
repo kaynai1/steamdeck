@@ -2617,3 +2617,145 @@ input[type=range] { accent-color: var(--blue); }
 .pr.buy b { font-size: 13px; font-weight: 650; color: var(--text); }
 .pr.buy span { font-size: 10px; }
 .pr.buy.e b { color: var(--dim); font-weight: 500; }
+
+/* ============================================================
+   2.6.60 全局圆角现代化
+   参照「免费领取」卡片的圆润风格：按钮/输入框 10px、卡片 14px、
+   徽章改胶囊形。放在文件末尾，同优先级下覆盖此前的 4px 方角规则。
+   ============================================================ */
+
+/* 主按钮、次按钮、卡片内操作按钮 */
+.btn, .btnp, .fg-btn { border-radius: 10px !important; }
+
+/* 输入框 / 文本域 / 下拉 / 搜索框 */
+input[type=text], input[type=number], input[type=password], select, textarea {
+  border-radius: 10px !important;
+}
+.inp { border-radius: 10px !important; }
+.fld input:not([type="checkbox"]), .fld select, .fld textarea { border-radius: 10px !important; }
+
+/* 分段控件（含选中块） */
+.seg { border-radius: 10px !important; }
+.seg .tab { border-radius: 8px !important; }
+.seg-btn { border-radius: 8px !important; }
+
+/* 卡片类容器：与免费领取卡片同款 14px 圆角 */
+.card, .panel, .box, .kpi, .acard, .gcard, .fg, .idle-game-card,
+.store-price-card, .note, .tool.filters, .free-run, .ast div,
+.idle-game-drop, .subtle, .cost-kpi {
+  border-radius: 14px !important;
+}
+
+/* 弹窗与抽屉 */
+.update-box, .drawer, .modal, .ai-modal, .item-detail {
+  border-radius: 16px !important;
+}
+
+/* 徽章 / 标签 / 状态：胶囊形（参照免费领取平台标签） */
+.pill, .pill.n, .bd, .st, .cnt, .tag, .cur, .badge, .chip, .cbadge {
+  border-radius: 999px !important;
+}
+
+/* 开关保持胶囊形 */
+.sw, .tg, .switch, .toggle { border-radius: 999px !important; }
+
+/* 气泡提示 */
+.toast { border-radius: 12px !important; }
+
+/* 游戏库卡片：对齐「免费领取」卡片的视觉与手感 */
+.gcard {
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.gcard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .10);
+  border-color: var(--line2);
+}
+/* 「可交易」角标：从方角块改成免费领取平台标签同款左上角胶囊 */
+.gcard .cbadge {
+  left: 9px; top: 9px; right: auto;
+  padding: 4px 8px;
+  font-size: 10px;
+  background: rgba(23, 54, 84, .88);
+  color: #fff;
+  backdrop-filter: blur(3px);
+}
+/* 信息区排版向免费领取卡片看齐：标题加粗、AppID 做成次级说明 */
+.gcard .ib2 { padding: 10px 11px 6px; }
+.gcard.portrait .ib2 { padding: 9px 10px 5px; }
+.gcard .nm { font-size: 12.5px; font-weight: 700; }
+.gcard.portrait .nm { font-size: 12px; }
+.gcard .gid { margin-top: 2px; }
+/* 操作行：按钮高度/圆角与免费领取卡一致；「启动」为主按钮 */
+.gact-row { padding: 4px 10px 10px; gap: 7px; }
+.gact-btn {
+  height: 29px !important;
+  padding: 0 13px !important;
+  font-size: 12px !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+}
+.gact-btn[data-launch] {
+  background: var(--blue) !important;
+  color: #fff !important;
+  border: 0 !important;
+}
+.gact-btn[data-launch]:hover { background: var(--blue-hover) !important; }
+.gact-btn[data-market] { background: var(--btn-sec-bg); border: .5px solid var(--btn-sec-border); }
+
+/* 表格行内小控件（展开箭头等）适度圆角 */
+.exp, .fr-x, .rowbtn { border-radius: 8px !important; }
+
+/* ============================================================
+   2.6.64 游戏库卡片重做（参照「免费领取」卡片的版式）
+   横版大图封面 + 左上平台标签 + 右上状态标签 + 封面下信息区 + 底部按钮
+   ============================================================ */
+
+/* 横版网格：更宽一点的卡片，接近图2 的比例 */
+.ggrid.wide { grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 14px; }
+.ggrid.portrait { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 13px; }
+
+.gcard { position: relative; }
+
+/* 左上角平台标签：深色半透明胶囊，和免费领取卡一致 */
+.gcard .plat {
+  position: absolute; left: 10px; top: 10px;
+  font-size: 10.5px; font-weight: 600; line-height: 1;
+  padding: 5px 9px; border-radius: 999px;
+  color: #fff; background: rgba(18, 33, 50, .78);
+  backdrop-filter: blur(4px);
+  letter-spacing: .2px;
+}
+/* 右上角状态标签：可交易（绿）/ 已安装（蓝灰） */
+.gcard .stat {
+  position: absolute; right: 10px; top: 10px;
+  font-size: 10px; font-weight: 600; line-height: 1;
+  padding: 5px 8px; border-radius: 999px;
+  color: #0A2413; background: rgba(120, 200, 120, .92);
+  backdrop-filter: blur(4px);
+}
+.gcard .stat.trade { color: #06210F; background: rgba(90, 190, 120, .92); }
+
+/* 信息区排版：标题加粗，下方 meta 行放 AppID / 已安装 / 时长 */
+.gcard .ib2 { padding: 10px 12px 4px; }
+.gcard .nm { font-size: 13px; font-weight: 700; line-height: 1.35; }
+.gcard.portrait .nm { font-size: 12.5px; }
+.gcard .meta {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; margin-top: 6px;
+  font-size: 10.5px; color: var(--dim);
+}
+.gcard .meta .gtag {
+  display: inline-flex; align-items: center;
+  padding: 2px 7px; border-radius: 999px;
+  background: var(--badge-bg); color: var(--muted);
+  font-weight: 500; font-variant-numeric: tabular-nums;
+}
+.gcard .meta .gtag.ok { color: var(--green); background: rgba(80, 170, 110, .12); }
+/* 旧结构兼容（万一还有 .gid/.sub 的卡片） */
+.gcard .gid { font-size: 9.5px; color: var(--dim); margin-top: 3px; }
+
+/* 按钮行贴底，主按钮全宽更接近图2 */
+.gact-row { padding: 8px 12px 12px; gap: 8px; }
+.gact-btn { height: 32px !important; font-size: 12.5px !important; border-radius: 10px !important; }
+.gcard.portrait .gact-btn { height: 30px !important; font-size: 12px !important; }

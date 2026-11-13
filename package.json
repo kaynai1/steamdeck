@@ -1,7 +1,7 @@
 {
   "name": "steamdesk",
   "productName": "SteamDesk",
-  "version": "2.6.59",
+  "version": "2.6.64",
   "description": "Steam 多账号管理、游戏库识别、饰品行情对照与批量上架工具（本地运行，不接触密码）",
   "main": "main.js",
   "author": "SteamDesk",
@@ -11,10 +11,14 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "dist": "electron-builder --win nsis",
-    "dist:portable": "electron-builder --win portable"
+    "dist:all": "electron-builder --win nsis portable"
+  },
+  "dependencies": {
+    "isomorphic-git": "^1.44.13",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
-    "electron": "^31.3.1",
+    "electron": "^31.7.7",
     "electron-builder": "^24.13.3"
   },
   "build": {
@@ -32,16 +36,22 @@
       "icon.png",
       "icon.ico"
     ],
+    "extraResources": [
+      {
+        "from": "extension",
+        "to": "extension"
+      }
+    ],
     "win": {
       "target": [
         "nsis",
         "portable"
       ],
       "icon": "icon.ico",
-      "signAndEditExecutable": false,
-      "artifactName": "SteamDesk-${version}-${arch}.${ext}"
+      "signAndEditExecutable": false
     },
     "nsis": {
+      "artifactName": "SteamDesk-${version}-setup.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
@@ -50,11 +60,8 @@
       "uninstallerIcon": "icon.ico",
       "installerHeaderIcon": "icon.ico"
     },
-    "extraResources": [
-      {
-        "from": "extension",
-        "to": "extension"
-      }
-    ]
+    "portable": {
+      "artifactName": "SteamDesk-${version}-portable.${ext}"
+    }
   }
 }

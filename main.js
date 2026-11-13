@@ -341,6 +341,11 @@ if (!gotSingleLock) {
 
 app.on('before-quit', () => {
   quitting = true;
+  try {
+    require('./main/qqbot').stopGateway();
+  } catch {
+    /* 退出时清理失败不影响退出 */
+  }
 });
 
 app.whenReady().then(() => {
@@ -412,6 +417,13 @@ app.whenReady().then(() => {
   priceHistory.start();
   storeWatch.start();
   notify.start({ icon: iconPath() });
+  // QQ 机器人实时网关：凭据齐全时自动连接，用于接收私聊/群聊绑定消息
+  try {
+    const qqCfg = require('./main/qqbot').config();
+    if (qqCfg.appId && qqCfg.secret) {
+      require('./main/qqbot').startGateway().catch(() => {});
+    }
+  } catch { /* 未配置时跳过 */ }
   // 配置了更新源才检查，没配置就完全不联网
   setTimeout(() => updater.autoCheck(), 30 * 1000);
   app.on('activate', () => {
@@ -535,7 +547,14 @@ ipcMain.handle('guard:unlink', wrap(async () => guard.unlink()));
 ipcMain.handle('guard:confirm', wrap(async (opts) => guard.confirmMarketListings(opts || {})));
 
 ipcMain.handle('settings:get', wrap(async () => store.getSettings()));
-ipcMain.handle('settings:set', wrap(async (patch) => store.setSettings(patch)));
+ipcMain.handle('settings:set', wrap(async (patch) => {
+  const r = store.setSettings(patch);
+  // 代理设置变化时立即应用到登录分区（登录窗口 / 库存 / 市场请求全部生效）
+  if (patch && patch.loginProxy !== undefined) {
+    require('./main/session').applyProxy().catch((e) => logger.warn('应用代理失败', { message: e && e.message }));
+  }
+  return r;
+}));
 
 ipcMain.handle('steam:choosePath', wrap(async () => {
   const res = await dialog.showOpenDialog(win, {
@@ -865,10 +884,21 @@ ipcMain.handle('notify:set', wrap(async (p = {}) => {
   if (p.tgChat !== undefined) {
     patch.notifyConfig = { ...(store.getSettings().notifyConfig || {}), tgChat: String(p.tgChat || '').trim() };
   }
-  if (p.qqAppId !== undefined) patch.qqAppId = String(p.qqAppId || '').trim();
-  if (p.qqGuildId !== undefined) patch.qqGuildId = String(p.qqGuildId || '').trim();
-  if (p.qqChannelId !== undefined) patch.qqChannelId = String(p.qqChannelId || '').trim();
-  if (p.qqChannelName !== undefined) patch.qqChannelName = String(p.qqChannelName || '').trim();
+  /* QQ 配置写入顶层（qqbot.config() 与界面回显都从顶层读），
+     同时同步一份进 notifyConfig，避免旧数据和新数据两处不一致。 */
+  const qqKeys = ['qqAppId', 'qqGuildId', 'qqChannelId', 'qqChannelName'];
+  let qqChanged = false;
+  for (const k of qqKeys) {
+    if (p[k] !== undefined) {
+      patch[k] = String(p[k] || '').trim();
+      qqChanged = true;
+    }
+  }
+  if (qqChanged) {
+    const merged = { ...(store.getSettings().notifyConfig || {}) };
+    for (const k of qqKeys) if (patch[k] !== undefined) merged[k] = patch[k];
+    patch.notifyConfig = { ...(patch.notifyConfig || merged), ...merged };
+  }
   const putSecret = (name, value) => {
     if (value === undefined) return;
     const v = String(value || '').trim();
@@ -881,10 +911,25 @@ ipcMain.handle('notify:set', wrap(async (p = {}) => {
   putSecret('notify:qqSecret', p.qqSecret);
   store.setSettings(patch);
   logger.info('通知外发设置更新', { channel: store.getSettings().notifyChannel, desktop: store.getSettings().notifyDesktop });
+  // QQ 凭据变化时重启实时网关（私聊/群聊绑定靠它收消息）
+  if (p.qqAppId !== undefined || p.qqSecret !== undefined) {
+    const qb = require('./main/qqbot');
+    if (store.getSettings().qqAppId && store.readSecret('notify:qqSecret')) {
+      qb.restartGateway().catch((e) => logger.warn('QQ 网关重启失败', { message: e && e.message }));
+    } else {
+      qb.stopGateway();
+    }
+  }
   return notify.getState();
 }));
 ipcMain.handle('notify:test', wrap(async () => notify.test()));
 ipcMain.handle('notify:qqTargets', wrap(async () => require('./main/qqbot').listTargets()));
+ipcMain.handle('notify:qqGateway', wrap(async () => require('./main/qqbot').gatewayState()));
+ipcMain.handle('notify:qqRestart', wrap(async () => require('./main/qqbot').restartGateway()));
+ipcMain.handle('notify:qqUnbind', wrap(async (kind) => {
+  require('./main/qqbot').unbind(kind);
+  return require('./main/qqbot').bindState();
+}));
 
 ipcMain.handle('saleWatch:state', wrap(async () => saleWatch.getState()));
 ipcMain.handle('saleWatch:run', wrap(async (force) => saleWatch.checkOnce({ force: !!force })));
@@ -921,6 +966,7 @@ ipcMain.handle('tradeWatch:refresh', wrap(async () => {
 ipcMain.handle('ai:report', wrap(async (days) => ai.weeklyReport(days)));
 ipcMain.handle('ai:ask', wrap(async (question) => ai.ask(question)));
 ipcMain.handle('ai:test', wrap(async () => ai.test()));
+ipcMain.handle('ai:models', wrap(async () => ai.listModels()));
 
 // 浏览器扩展采集入口
 ipcMain.handle('ext:state', wrap(async () => ingest.getState()));

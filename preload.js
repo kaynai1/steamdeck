@@ -33,10 +33,13 @@ contextBridge.exposeInMainWorld('api', {
     status: () => invoke('risk:status'),
   },
   notify: {
+    set: (patch) => invoke('notify:set', patch),
     state: () => invoke('notify:state'),
-    set: (p) => invoke('notify:set', p || {}),
     test: () => invoke('notify:test'),
     qqTargets: () => invoke('notify:qqTargets'),
+    qqGateway: () => invoke('notify:qqGateway'),
+    qqRestart: () => invoke('notify:qqRestart'),
+    qqUnbind: (kind) => invoke('notify:qqUnbind', kind),
   },
   update: {
     state: () => invoke('update:state'),
@@ -135,6 +138,7 @@ contextBridge.exposeInMainWorld('api', {
     report: (days) => invoke('ai:report', days),
     ask: (question) => invoke('ai:ask', question),
     test: () => invoke('ai:test'),
+    models: () => invoke('ai:models'),
   },
   ext: {
     state: () => invoke('ext:state'),

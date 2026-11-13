@@ -177,6 +177,65 @@ function closeWin() {
  * Steam 登录成功后的落地页会随 goto、二步验证、地区而变化，
  * 按 URL 判断非常容易漏，按 Cookie 出现与否判断才是可靠的。
  */
+/**
+ * 登录页加载失败的引导页：steamcommunity.com 在部分网络环境下
+ * 直接连不上（超时/被重置/DNS 污染），以前的表现是一片黑屏，
+ * 用户不知道发生了什么。这里给出明确的错误说明和重试入口。
+ *
+ * 特别说明：UU / 雷神这类游戏加速器是「进程级」加速，只接管
+ * steam.exe 等白名单进程，对独立程序的登录窗口无效，而且不提供
+ * 系统代理端口 —— 所以开了加速器仍然会被重置。需要的是一个提供
+ * 本地代理端口的全局代理工具，在「设置 → 登录窗口代理」里填写。
+ */
+function loginErrorPageHtml(errorCode, errorDescription) {
+  const safeMsg = `${errorDescription || '连接失败'}（错误码 ${errorCode || '未知'}）`;
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>Steam 登录页加载失败</title></head>
+    <body style="font-family:system-ui,-apple-system,'Microsoft YaHei',sans-serif;padding:32px 22px;text-align:center;color:#E5E5E5;background:#1B2838;">
+      <div style="font-size:40px;margin-bottom:14px">&#127760;</div>
+      <h3 style="margin:0 0 10px;font-size:17px;color:#fff;">Steam 登录页打不开</h3>
+      <p style="font-size:12.5px;color:#B8C6D2;line-height:1.7;max-width:430px;margin:0 auto 12px;">
+        窗口里加载的是 Steam 官方登录页（steamcommunity.com）。<br>
+        当前网络连不上这个地址：${safeMsg}
+      </p>
+      <div style="font-size:12px;color:#C9D6E2;line-height:1.75;max-width:430px;margin:0 auto 12px;text-align:left;background:rgba(255,255,255,.05);border:1px solid #3D5165;border-radius:10px;padding:12px 14px;">
+        <b style="color:#fff">关于加速器的重要说明</b><br>
+        UU / 雷神这类游戏加速器只加速 Steam 客户端（steam.exe）进程，<b>不会代理本软件的登录窗口</b>，所以开了加速器仍然连不上。<br>
+        请改用提供<b>本地代理端口</b>的全局代理工具（如 Clash、v2rayN），然后到<b>「设置 → 登录窗口代理」</b>填入端口地址（如 <b>127.0.0.1:7890</b>），再回到这里点「重新加载」。
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button onclick="location.href='https://steamcommunity.com/login/home/?goto=market'"
+          style="padding:9px 18px;background:#0078D4;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">重新加载登录页</button>
+        <button onclick="location.href='https://store.steampowered.com/login/?goto=market'"
+          style="padding:9px 18px;background:transparent;color:#B8C6D2;border:1px solid #4A5A6A;border-radius:8px;cursor:pointer;font-size:13px;">用商店域登录入口</button>
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:#6B7B8A;">本应用不获取密码，登录只在 Steam 官方页面完成。</div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * 应用登录分区代理：settings.loginProxy 非空时把登录窗口和
+ * 所有走 persist:steam 分区的 Steam 请求（登录页 / 库存 / 市场）
+ * 都指到这个代理上；留空则跟随系统代理。
+ */
+async function applyProxy() {
+  const rule = String(store.getSettings().loginProxy || '').trim();
+  try {
+    if (rule) {
+      await ses().setProxy({ mode: 'fixed_servers', proxyRules: rule });
+    } else {
+      await ses().setProxy({ mode: 'system' });
+    }
+    return { ok: true, proxy: rule || '(跟随系统代理)' };
+  } catch (e) {
+    return { ok: false, message: (e && e.message) || '代理设置失败' };
+  }
+}
+
 async function openLogin(steamIdHint) {
   if (loginWin && !loginWin.isDestroyed()) {
     loginWin.focus();
@@ -215,23 +274,64 @@ async function openLogin(steamIdHint) {
       },
     });
 
-    loginWin.loadURL(LOGIN_URL);
+    // 每次打开登录窗口前重新应用代理设置（用户可能刚在设置里填了端口）
+    applyProxy().catch(() => {});
 
     // 主判定：轮询 Cookie（1.2s 一次，足够快且不打扰）
     pollTimer = setInterval(() => {
       tryFinish('cookie-detected');
     }, 1200);
 
+    // ★ 加载失败 / 超时的兜底：以前这里什么都不做，网络不通就是一片黑屏 ★
+    let loaded = false;
+    let failHandled = false;
+    let slowTimer = null;
+    const showNetError = (errorCode, errorDescription) => {
+      if (failHandled || !loginWin || loginWin.isDestroyed()) return;
+      failHandled = true;
+      clearTimeout(slowTimer);
+      loginWin
+        .loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loginErrorPageHtml(errorCode, errorDescription))}`)
+        .catch(() => {});
+    };
+
+    loginWin.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+      if (errorCode === -3) return; // 忽略 ABORTED（主动取消/跳转打断）
+      showNetError(errorCode, errorDescription);
+    });
+    // 从错误页点「重新加载」后允许再次检测失败
+    loginWin.webContents.on('did-navigate', (_e, url) => {
+      if (/^https:/i.test(String(url || ''))) {
+        failHandled = false;
+        clearTimeout(slowTimer);
+        slowTimer = setTimeout(() => {
+          if (!loaded) showNetError('TIMEOUT', '30 秒内没有加载完成');
+        }, 30000);
+      }
+    });
+    loginWin.webContents.on('did-finish-load', () => {
+      loaded = true;
+      clearTimeout(slowTimer);
+    });
+
+    loginWin.loadURL(LOGIN_URL).catch((err) => {
+      showNetError(err && err.code ? err.code : 'LOAD_FAIL', (err && err.message) || '页面加载失败');
+    });
+    // 首次加载的超时提示（30 秒没动静多半是连不上）
+    slowTimer = setTimeout(() => {
+      if (!loaded) showNetError('TIMEOUT', '30 秒内没有加载完成');
+    }, 30000);
+
     // 辅助判定：页面跳转后立刻查一次，缩短成功到提示的延迟
     const onNav = () => {
       setTimeout(() => tryFinish('redirect'), 600);
     };
-    loginWin.webContents.on('did-navigate', onNav);
     loginWin.webContents.on('did-navigate-in-page', onNav);
     loginWin.webContents.on('did-finish-load', onNav);
 
     loginWin.on('closed', () => {
       stopPolling();
+      clearTimeout(slowTimer);
       loginWin = null;
       if (!pendingResolve) return;
       const r = pendingResolve;
@@ -625,5 +725,6 @@ module.exports = {
   readCookies,
   readStoreCookies,
   authFetch,
+  applyProxy,
   LOGIN_PARTITION,
 };

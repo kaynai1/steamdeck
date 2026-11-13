@@ -58,24 +58,29 @@ function enabled() {
 
 /** 已配置状态（给设置界面用，不回显密钥） */
 function getState() {
-  const ch = channel();
-  const cfg = settings().notifyConfig || {};
+  const s = settings();
+  const cfg = s.notifyConfig || {};
   return {
-    channel: ch,
-    enabled: ch !== 'none',
-    desktop: settings().notifyDesktop !== false,
-    tgChat: cfg.tgChat || '',
+    channel: channel(),
+    enabled: channel() !== 'none',
+    desktop: s.notifyDesktop !== false,
+    tgChat: cfg.tgChat || s.tgChat || '',
     tgToken: !!secret('notify:tgToken'),
     webhook: !!secret('notify:webhook'),
     webhookUrl: secret('notify:webhook') ? maskUrl(secret('notify:webhook')) : '',
     scKey: !!secret('notify:scKey'),
-    qqAppId: String(cfg.qqAppId || ''),
-    qqChannelId: String(cfg.qqChannelId || ''),
-    qqChannelName: String(cfg.qqChannelName || ''),
-    qqGuildId: String(cfg.qqGuildId || ''),
+    /* QQ 配置存放在 settings 顶层（与 main.js notify:set / qqbot.js config() 一致）；
+       旧版本曾写在 notifyConfig 里，这里兼容读取，避免“填了却显示未配置”。 */
+    qqAppId: String(s.qqAppId || cfg.qqAppId || ''),
+    qqChannelId: String(s.qqChannelId || cfg.qqChannelId || ''),
+    qqChannelName: String(s.qqChannelName || cfg.qqChannelName || ''),
+    qqGuildId: String(s.qqGuildId || cfg.qqGuildId || ''),
     qqSecret: !!secret('notify:qqSecret'),
-    lastAt: Number(settings().notifyLastAt) || 0,
-    lastError: String(settings().notifyLastError || ''),
+    /* 私聊/群聊绑定状态与实时网关（由 qqbot 提供，供设置页展示绑定进度） */
+    qqBinds: require('./qqbot').bindState(),
+    qqGateway: require('./qqbot').gatewayState(),
+    lastAt: Number(s.notifyLastAt) || 0,
+    lastError: String(s.notifyLastError || ''),
   };
 }
 
@@ -142,12 +147,13 @@ function request(urlStr, payload) {
 
 async function deliverOne(title, body) {
   const ch = channel();
-  const cfg = settings().notifyConfig || {};
+  const s = settings();
+  const cfg = s.notifyConfig || {};
   const text = `【SteamDesk】${title}\n${body}`;
 
   if (ch === 'telegram') {
     const token = secret('notify:tgToken');
-    const chat = String(cfg.tgChat || '').trim();
+    const chat = String(cfg.tgChat || s.tgChat || '').trim();
     if (!token || !chat) throw new Error('Telegram 未配置 bot token 或 chat id');
     await request(`https://api.telegram.org/bot${token}/sendMessage`, {
       chat_id: chat,

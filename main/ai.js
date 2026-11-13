@@ -171,6 +171,51 @@ async function ask(question) {
   return { text, at: Date.now() };
 }
 
+async function listModels(opts = {}) {
+  const o = ensure();
+  const guard = timeout(opts.timeoutMs || 30000, '拉取模型列表');
+  try {
+    const res = await Promise.race([
+      fetch(`${o.base}/models`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${o.key}` },
+      }),
+      guard.promise,
+    ]);
+    const text = await res.text();
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      /* 统一报错 */
+    }
+    if (!res.ok) {
+      const msg =
+        (json && json.error && (json.error.message || json.error.code)) ||
+        `HTTP ${res.status}：${String(text).slice(0, 200)}`;
+      throw Object.assign(new Error(`拉取模型列表失败：${msg}`), { code: 'E_AI_MODELS' });
+    }
+    /* 兼容 OpenAI 格式 { data: [{id}] } 与部分中转站直接返回数组 [{id}] 两种形态 */
+    const raw = (json && Array.isArray(json.data) && json.data) || (Array.isArray(json) ? json : []);
+    const ids = raw
+      .map((m) => (m && (m.id || m.name || m.model)) || '')
+      .map(String)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    if (!ids.length) {
+      throw Object.assign(new Error('接口返回的模型列表为空，请在下方手动填写模型名'), {
+        code: 'E_AI_MODELS_EMPTY',
+      });
+    }
+    /* 当前正在用的模型排到最前面，方便直接选 */
+    const cur = o.model;
+    ids.sort((a, b) => (a === cur ? -1 : b === cur ? 1 : 0));
+    return { models: ids, count: ids.length, base: o.base };
+  } finally {
+    guard.clear();
+  }
+}
+
 async function test() {
   const o = ensure();
   const text = await chat(
@@ -180,4 +225,4 @@ async function test() {
   return { text, model: o.model, base: o.base };
 }
 
-module.exports = { options, weeklyReport, ask, test };
+module.exports = { options, weeklyReport, ask, test, listModels };

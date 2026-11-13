@@ -426,8 +426,8 @@
           </span>
           <span class="sp"></span>
           <div class="seg" id="libShape">
-            <button class="tab on" data-shape="portrait">竖版封面</button>
-            <button class="tab" data-shape="wide">横版封面</button>
+            <button class="tab" data-shape="portrait">竖版封面</button>
+            <button class="tab on" data-shape="wide">横版封面</button>
           </div>
         </div>
         <div class="ggrid" id="libBody"></div>
@@ -436,10 +436,9 @@
       <!-- 游戏查价与挂机资讯 -->
       <section class="pg" data-p="storeNews">
         <div class="ph">
-          <div><h2>游戏查价与挂机掉落资讯</h2><div class="mt">实时查询 Steam 商店游戏价格与史低折扣 · 监控热门挂机掉落新作上线动向</div></div>
+          <div><h2>游戏查价与挂机掉落资讯</h2><div class="mt">实时查询 Steam 商店游戏价格与史低折扣 · 监控热门挂机掉落新作上线动向<span class="pill" id="idleUpdated" style="margin-left:8px;vertical-align:middle">行情读取中…</span></div></div>
           <div class="r">
-            <span class="pill" id="idleUpdated">行情读取中…</span>
-            <input id="idleAddApp" placeholder="AppID" style="width:92px;height:28px" />
+            <span class="inp" style="width:112px;flex:none"><input id="idleAddApp" placeholder="AppID" style="width:100%;text-align:left" /></span>
             <button class="btn s" id="idleAddBtn" title="把这个游戏加入挂机行情与掉落监控">加入监控</button>
             <button class="btn p" id="newsRefresh">刷新行情</button>
           </div>
@@ -565,6 +564,10 @@
       <div class="fld-hint">选「跟随系统」时：Windows 白天用浅色、夜间用深色</div>
     </div>
     <label class="fld"><span>Steam 安装目录</span><div class="rowx"><input id="setSteamPath" placeholder="自动探测" /><button class="btn s" id="setChoosePath">选择</button></div></label>
+    <label class="fld"><span>登录窗口代理（Steam 社区直连不通时填）</span>
+      <input id="setLoginProxy" placeholder="留空跟随系统；例如 127.0.0.1:7890" />
+      <div class="fld-hint">UU / 雷神等游戏加速器只加速 Steam 客户端进程，对本软件无效。需要 Clash、v2rayN 这类提供本地端口的全局代理工具：先看代理软件界面上的「混合端口 / HTTP 端口」，把 127.0.0.1:端口 填到这里。保存后重新打开登录窗口即可生效，登录和库存 / 市场请求都会走这个代理。</div>
+    </label>
     <label class="fld"><span>界面缩放（看不清就调大，会记住）</span>
       <div class="rowx">
         <input id="setZoom" type="range" min="0.85" max="1.6" step="0.05" style="flex:1" />
@@ -671,10 +674,16 @@
     <label class="fld" id="nfQqSecret" style="display:none"><span>AppSecret（加密保存，不回显）</span>
       <div class="rowx"><input id="setQqSecret" type="password" placeholder="已保存则留空" /><button class="btn s" id="clrQqSecret" title="清除已保存的 AppSecret">清除</button></div>
     </label>
-    <div class="fld" id="nfQqChannel" style="display:none"><span>推送到哪个子频道</span>
+    <div class="fld" id="nfQqDirect" style="display:none">
+      <span>私聊推送（推荐，像好友一样直接发到你 QQ）</span>
+      <div class="rowx"><button class="btn p" id="qqConnect" style="flex:1;justify-content:center">连接机器人</button><button class="btn s" id="qqUnbindC2c" style="flex:none;display:none">解除绑定</button></div>
+      <div class="fld-hint" id="qqBindStatus">填好上面两项后点「连接机器人」，然后打开 QQ，在消息列表搜到你的机器人，随便给它发一条消息（比如「绑定」），这里会自动显示绑定成功。</div>
+      <div class="fld-hint">绑定后通知直接发到你的 QQ 私聊；平时给机器人发条消息（表情也行）可以保持推送额度。也可以把机器人拉进 QQ 群，在群里 @它 发「绑定」改用群推送。</div>
+    </div>
+    <div class="fld" id="nfQqChannel" style="display:none"><span>频道推送（备用：机器人加进 QQ 频道后使用）</span>
       <div class="rowx"><input id="setQqChannelId" placeholder="点子频道按钮自动填，或手动粘贴" /><button class="btn s" id="qqFetchChannels">列出频道</button></div>
       <div class="seg" id="qqChannelPick" style="flex-wrap:wrap;gap:4px;margin-top:2px"></div>
-      <div class="fld-hint">腾讯从 2025 年 4 月起关闭了 QQ 机器人的群聊/私聊主动消息，只能推到 QQ 频道的文字子频道；先在 QQ 频道里把机器人加进去，再点「列出频道」。</div>
+      <div class="fld-hint">不推荐：腾讯已关闭群聊/私聊的普通主动消息，频道推送要求机器人先加入 QQ 频道（沙箱阶段只能用自己创建的频道）。优先用上面的私聊推送。</div>
     </div>
     <div class="rowx" style="gap:8px;margin:6px 0">
       <button class="btn s" id="notifyTest" style="flex:1;justify-content:center">发送测试</button>
@@ -766,7 +775,10 @@
     </label>
     <label class="fld"><span>接口地址</span><input id="setAiBase" placeholder="https://api.openai.com/v1" /></label>
     <label class="fld"><span>API Key</span><input id="setAiKey" type="password" autocomplete="off" /></label>
-    <label class="fld"><span>模型名</span><input id="setAiModel" placeholder="gpt-4o-mini" /></label>
+    <label class="fld"><span>模型名（可点「获取模型」直接选）</span>
+      <div class="rowx"><input id="setAiModel" placeholder="gpt-4o-mini" style="flex:1" /><button class="btn s" id="aiFetchModels" style="flex:none">获取模型</button></div>
+      <select id="aiModelPick" style="display:none;margin-top:4px;width:100%"></select>
+    </label>
     <div class="rowx" style="gap:8px;margin:6px 0">
       <button class="btn s" id="aiTest" style="flex:1;justify-content:center">测试接口</button>
       <button class="btn s" id="aiReportBtn" style="flex:1;justify-content:center">生成 AI 周报</button>
@@ -793,14 +805,17 @@
     <div class="fld-hint">成交历史与每日行情会自动存到本地。Steam 只给有限页，归档后才有完整历史；数据在 userData\archive 目录。</div>
 
     <div class="set-sec">版本更新</div>
-    <label class="fld"><span>更新源地址（留空则不联网检查）</span>
-      <input id="setUpdateUrl" placeholder="https://example.com/steamdesk-latest.json" />
+    <label class="fld"><span>启动时自动检查更新（默认从 GitHub Releases 检查）</span>
+      <input id="setUpdateAuto" type="checkbox" />
+    </label>
+    <label class="fld"><span>自定义更新源（可选，填了则不再走 GitHub）</span>
+      <input id="setUpdateUrl" placeholder="留空则默认检查 GitHub Releases" />
     </label>
     <div class="rowx" style="gap:8px;margin:6px 0">
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">JSON 格式：{"version":"2.6.59","url":"https://.../SteamDesk-2.6.59-x64.exe","notes":"更新说明"}。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.60","url":"https://.../SteamDesk-2.6.60-x64.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.61，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -953,8 +968,8 @@
     </div>
     <div class="update-body">
       <h4>版本更新说明</h4>
-      <div style="color:var(--muted);font-size:12px;margin-bottom:10px">
-        更新检查：<b>在「设置 → 版本更新」填入更新源地址后生效</b>
+      <div id="updateCheckResult" style="margin-bottom:10px">
+        <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
         <b>v2.6.59 最新更新特性：</b><br>
@@ -1013,7 +1028,7 @@
         15. <b>多窗口 / 分屏</b>：标题栏「在新窗口打开当前页」，或 Ctrl+Shift+N；<br>
         16. <b>浏览器扩展</b>：在 Steam 市场物品页点「记到 SteamDesk」把当前价发到本机，物品详情直接显示采集价；<br>
         17. <b>此前能力全部保留</b>：风控黑白名单、自动化时段、物品级自动改价策略、成交速度、批量试运行、撤销上次批量、大额二次确认、自动守价、自动记成本、备份恢复、通知中心、免打扰、每日目标与尾数定价、账龄四档、多币种报表、任务面板、快捷键、命令面板、首次向导、BUFF 比价、窗口记忆、归档、报表、补货、阶梯降价、维护模式、风控、定价、成本、批量操作、价格提醒、诊断包。</div>
-      <div style="font-size:11.5px;color:var(--dim)">填入更新源地址后，启动时会自动检查新版并提示下载；不填则完全不联网检查。软件不会静默替换程序。</div>
+      <div style="font-size:11.5px;color:var(--dim)">默认从 GitHub Releases 检查新版；也可在设置里填自定义更新源。发现新版会提示下载，不会静默替换程序。</div>
     </div>
     <div class="update-foot">
       <button class="btn s" id="btnOpenLogs" title="打开按天写入的运行日志目录">打开日志</button>
