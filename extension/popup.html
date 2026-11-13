@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { margin: 0; padding: 14px; width: 280px; background: #0b0f14; color: #e7edf4; font: 13px/1.55 "Microsoft YaHei", sans-serif; }
+      h1 { margin: 0 0 8px; font-size: 14px; }
+      p { margin: 0 0 10px; color: #9fb0c3; font-size: 12px; }
+      input { box-sizing: border-box; width: 100%; height: 32px; padding: 0 9px; border-radius: 6px; border: 1px solid #2a3543; background: #131a22; color: #e7edf4; outline: none; }
+      button { margin-top: 8px; width: 100%; height: 32px; border: 0; border-radius: 6px; background: #2f81f7; color: #fff; font-weight: 600; cursor: pointer; }
+      .ok { color: #5ac47e; }
+      .err { color: #e0655b; }
+      #msg { margin-top: 8px; font-size: 12px; min-height: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>SteamDesk 价格采集</h1>
+    <p>把 SteamDesk「设置 → 浏览器扩展」里的令牌粘贴到这里，只保存在本机扩展里。</p>
+    <input id="token" placeholder="粘贴令牌" autocomplete="off" />
+    <button id="save">保存令牌</button>
+    <div id="msg"></div>
+    <p style="margin-top:10px">安装：浏览器扩展页 → 打开开发者模式 → 加载已解压的扩展 → 选择 SteamDesk 安装目录下的 extension 文件夹。</p>
+    <script src="popup.js"></script>
+  </body>
+</html>

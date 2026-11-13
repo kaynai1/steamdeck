@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>SteamDesk</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="sd">
+  <!-- 标题栏 -->
+  <div class="tb">
+    <div class="mk">
+      <svg class="brand-logo" viewBox="0 0 28 28" fill="none">
+        <defs>
+          <linearGradient id="sdLogoGrad" x1="2" y1="2" x2="26" y2="26" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#00A2FF"/>
+            <stop offset="0.5" stop-color="#0078D4"/>
+            <stop offset="1" stop-color="#004E98"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="24" height="24" rx="7" fill="url(#sdLogoGrad)"/>
+        <!-- 现代 Steam 极简几何连杆图标 -->
+        <circle cx="16.5" cy="11.5" r="4.2" stroke="#FFFFFF" stroke-width="2.1" fill="none"/>
+        <circle cx="9.5" cy="17.5" r="2.6" fill="#FFFFFF"/>
+        <line x1="10.8" y1="16.2" x2="13.8" y2="13.2" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="bn">SteamDesk<em id="ver">—</em></div>
+    <div class="sp"></div>
+    <div class="cur" id="curBox" title="当前账号">
+      <div class="av" id="curAv">—</div>
+      <div class="n" id="curName">未选择</div>
+      <span class="dot o" id="curDot"></span>
+    </div>
+    <button class="ib" id="btnNewWindow" title="在新窗口打开当前页（Ctrl+Shift+N）">
+      <svg class="ico" viewBox="0 0 16 16"><rect x="2" y="4.5" width="9" height="9" rx="1.4"/><path d="M6 4.5V2.8h7.2V10H11.8"/></svg>
+    </button>
+    <button class="ib" id="btnRefresh" title="刷新">
+      <svg class="ico" viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 11-1.6-3.9"/><path d="M13.5 2.5V5h-2.5"/></svg>
+    </button>
+    <button class="ib" id="btnTheme" title="切换界面外观（自动自适应 / 浅色白底 / 经典深色）">
+      <svg class="ico" id="icoTheme" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="3.2"/>
+        <path d="M8 1.5v1.8M8 12.7V14.5M1.5 8h1.8M12.7 8H14.5M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3"/>
+      </svg>
+    </button>
+    <button class="ib" id="btnMobileConf" title="手机令牌与市场待处理确认（可在电脑上直接点确认）">
+      <svg class="ico" viewBox="0 0 16 16"><rect x="4" y="1.5" width="8" height="13" rx="2"/><path d="M7 11.5h2"/></svg>
+    </button>
+    <button class="ib" id="btnUpdate" title="检查版本更新 (v2.6.59)">
+      <svg class="ico" viewBox="0 0 16 16">
+        <path d="M8 2.5a5.5 5.5 0 105.1 7.6M13.5 2.5v4h-4"/>
+        <path d="M13.1 6.5A5.5 5.5 0 008 2.5"/>
+      </svg>
+    </button>
+    <button class="ib" id="btnSettings" title="设置">
+      <svg class="ico" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.1"/><path d="M8 2v1.8M8 12.2V14M2 8h1.8M12.2 8H14M3.7 3.7l1.3 1.3M11 11l1.3 1.3M12.3 3.7L11 5M5 11l-1.3 1.3"/></svg>
+    </button>
+    <div class="wc">
+      <button id="winMin" title="最小化"><svg viewBox="0 0 12 12"><path d="M2 6h8"/></svg></button>
+      <button id="winMax" title="最大化"><svg viewBox="0 0 12 12"><rect x="2.2" y="2.2" width="7.6" height="7.6"/></svg></button>
+      <button class="cl" id="winClose" title="关闭"><svg viewBox="0 0 12 12"><path d="M2.4 2.4l7.2 7.2M9.6 2.4l-7.2 7.2"/></svg></button>
+    </div>
+  </div>
+
+  <div class="shell">
+    <!-- 左导航 -->
+    <aside class="rail">
+      <div class="rs">交易</div>
+      <button class="nav on" data-page="overview">
+        <svg class="ico" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><rect x="9" y="9" width="5" height="5" rx="1.2"/></svg>
+        <span class="lbl">概览</span>
+      </button>
+      <button class="nav" data-page="inventory">
+        <svg class="ico" viewBox="0 0 16 16"><path d="M3 4h10l-1 9H4L3 4z"/><path d="M6 4a2 2 0 014 0"/></svg>
+        <span class="lbl">饰品仓库</span>
+      </button>
+      <button class="nav" data-page="orders">
+        <svg class="ico" viewBox="0 0 16 16"><path d="M2.5 5.5l6-3 5 3-5 3-6-3z"/><path d="M2.5 8.5l6 3 5-3"/></svg>
+        <span class="lbl">市场挂单</span><span class="bd" id="navOrders">0</span>
+      </button>
+      <div class="rs">资讯与工具</div>
+      <button class="nav" data-page="storeNews">
+        <svg class="ico" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2.5 1.5"/><path d="M12 2l2 2"/></svg>
+        <span class="lbl">查价与挂机</span><span class="bd" style="background:rgba(63,190,107,.16);color:var(--green)">HOT</span>
+      </button>
+      <button class="nav" data-page="dailyDeals">
+        <svg class="ico" viewBox="0 0 16 16"><path d="M8.6 1.8H14v5.4l-6.4 6.4L2 8l6.6-6.2z"/><circle cx="11.6" cy="4.4" r=".9"/></svg>
+        <span class="lbl">每日促销</span><span class="bd" style="background:rgba(224,166,60,.18);color:var(--amber)">DEAL</span>
+      </button>
+      <button class="nav" data-page="free">
+        <svg class="ico" viewBox="0 0 16 16"><rect x="1.8" y="6.2" width="12.4" height="8" rx="1.4"/><path d="M1.8 9.4h12.4"/><path d="M8 6.2v8"/><path d="M8 6.2S6.6 2.2 4.7 2.2a1.7 1.7 0 000 3.4H8zM8 6.2s1.4-4 3.3-4a1.7 1.7 0 010 3.4H8z"/></svg>
+        <span class="lbl">免费领取</span><span class="bd" id="navFree" style="display:none">0</span>
+      </button>
+      <div class="rs">账号</div>
+      <button class="nav" data-page="accounts">
+        <svg class="ico" viewBox="0 0 16 16"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-3.9 5-3.9s5 1.4 5 3.9"/></svg>
+        <span class="lbl">账号管理</span>
+      </button>
+      <button class="nav" data-page="library">
+        <svg class="ico" viewBox="0 0 16 16"><rect x="1.5" y="5" width="13" height="6.5" rx="3"/><path d="M4.5 8.2h1.5M5.2 7.5v1.4"/><circle cx="10.8" cy="7.9" r=".8"/><circle cx="12.1" cy="9.3" r=".8"/></svg>
+        <span class="lbl">游戏库</span>
+      </button>
+      <div class="rf" id="rf">Steam 路径<br><b>探测中…</b></div>
+    </aside>
+
+    <div class="ct">
+      <!-- 概览 -->
+      <section class="pg on" data-p="overview">
+        <div class="ph">
+          <div><h2>交易概览</h2><div class="mt" id="ovSub">—</div></div>
+          <div class="r">
+            <button class="btn s" id="ovNotices">消息 <span class="bd" id="ovNoticeBadge" style="display:none">0</span></button>
+            <button class="btn s" id="ovReport">经营报表</button>
+            <button class="btn s" id="ovExport">导出报表</button>
+            <button class="btn p" id="ovScan">扫描账号</button>
+          </div>
+        </div>
+        <div class="two">
+          <div class="col">
+            <div class="kpis">
+              <div class="kpi"><div class="l">库存估值</div><div class="v" id="kValue">¥0.00</div><div class="f"><span class="dim2" id="kValueSub">未拉取库存</span></div></div>
+              <div class="kpi"><div class="l">库存件数</div><div class="v" id="kCount">0</div><div class="f"><span class="dim2" id="kCountSub">—</span></div></div>
+              <div class="kpi"><div class="l">在线账号</div><div class="v" id="kOnline">0<small> / 0</small></div><div class="f"><span class="dot"></span>已绑定</div></div>
+              <div class="kpi"><div class="l">市场挂单</div><div class="v" id="kListings">0</div><div class="f"><span class="dim2" id="kListSub">未同步</span></div></div>
+            </div>
+
+            <div class="card" id="ovTodo">
+              <div class="ch"><div><div class="t">今日待办</div><div class="s" id="ovTodoSub">挂单、体检与自动化状态汇总</div></div>
+                <div class="r"><button class="btn s" id="ovTodoRefresh">刷新</button></div></div>
+              <div class="todo-list" id="ovTodoList"><div class="watch-empty">正在汇总…</div></div>
+            </div>
+
+            <div class="card" id="ovTasks">
+              <div class="ch"><div><div class="t">后台自动任务</div><div class="s" id="ovTasksSub">补货 / 阶梯降价 / 守价 的最近一次结果</div></div>
+                <div class="r"><button class="btn s" id="ovTasksRefresh">刷新</button></div></div>
+              <div id="ovTasksList" class="task-list"><div class="watch-empty">正在读取…</div></div>
+            </div>
+
+            <div class="card" id="ovCostCard">
+              <div class="ch"><div><div class="t">持仓盈亏</div><div class="s" id="ovCostSub">按记录的成本价与当前市场最低在售价计算</div></div>
+                <div class="r"><span class="pill" id="ovCostPill">—</span><button class="btn s" id="ovCostRun" title="重新读取数量并查价">刷新</button></div></div>
+              <div class="cost-kpis">
+                <div class="cost-kpi"><span>总成本</span><b id="ovCostTotal">¥0.00</b></div>
+                <div class="cost-kpi"><span>当前市值</span><b id="ovCostValue">¥0.00</b></div>
+                <div class="cost-kpi"><span>浮动盈亏</span><b id="ovCostProfit">¥0.00</b></div>
+                <div class="cost-kpi"><span>低于成本</span><b id="ovCostBelow">0 种</b></div>
+              </div>
+              <div class="cf" id="ovCostFoot">还没有记录成本：到「饰品仓库 → 成本管理」回填或导入 CSV。</div>
+            </div>
+
+            <div class="card">
+              <div class="ch"><div><div class="t">库存估值趋势</div><div class="s">全部绑定账号 · 人民币</div></div>
+                <div class="r"><div class="seg"><button class="tab on" data-tr="h">24H</button><button class="tab" data-tr="d">7D</button><button class="tab" data-tr="m">30D</button></div></div></div>
+              <div style="display:flex;align-items:baseline;gap:7px;padding:7px 11px 0">
+                <div id="trBig" style="font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.4px">¥0.00</div>
+                <span class="pill n" id="trPill">暂无快照</span>
+              </div>
+              <div style="padding:2px 6px 0;position:relative">
+                <svg viewBox="0 0 600 132" preserveAspectRatio="none" style="width:100%;height:104px;display:block">
+                  <defs><linearGradient id="tgrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#4EA8F0" stop-opacity=".26"/>
+                    <stop offset="1" stop-color="#4EA8F0" stop-opacity="0"/>
+                  </linearGradient></defs>
+                  <line x1="0" y1="34" x2="600" y2="34" stroke="rgba(255,255,255,.055)"/>
+                  <line x1="0" y1="72" x2="600" y2="72" stroke="rgba(255,255,255,.055)"/>
+                  <line x1="0" y1="110" x2="600" y2="110" stroke="rgba(255,255,255,.055)"/>
+                  <path id="trArea" d="M8 130 L592 130 L592 130 L8 130 Z" fill="url(#tgrad)"/>
+                  <path id="trLine" d="M8 130 L592 130" fill="none" stroke="#4EA8F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" style="filter:drop-shadow(0 1px 3px rgba(78,168,240,.35))"/>
+                  <circle id="trDot" cx="592" cy="130" r="3" fill="#4EA8F0" style="display:none"/>
+                </svg>
+                <div class="trhint" id="trHint">拉取一次库存后开始记录估值快照</div>
+              </div>
+              <div class="xax" id="trXax"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>现在</span></div>
+            </div>
+
+            <div class="card">
+              <div class="ch"><div><div class="t">我的在售挂单</div><div class="s">实时同步 Steam 市场 · 售价与预计到手</div></div>
+                <div class="r"><span class="pill" id="ovOrdersCount">0 件</span><button class="btn s" data-go="orders">全部</button></div></div>
+              <div id="ovOrdersList" style="padding:4px 0 4px"></div>
+              <div class="cf" id="ovOrdersFoot">尚未同步挂单</div>
+            </div>
+
+            <div class="card">
+              <div class="ch"><div class="t">最近成交</div><div class="r"><span class="tag">全部账号</span><span class="tag">今日</span><button class="btn s" id="mhOpen" title="读取这个 Steam 账号在市场上的全部买卖记录，包含用其它软件或网页成交的">Steam 成交历史</button></div></div>
+              <div id="recentList" style="padding:4px 0 2px"></div>
+            </div>
+          </div>
+
+          <div class="col">
+            <div class="card">
+              <div class="ch"><div class="t">账号快切</div><div class="r"><span class="s" id="switchState">空闲</span></div></div>
+              <div id="quickAcc" style="padding:4px 0 5px"></div>
+              <div class="cf"><span id="switchHint">切换会关闭 Steam 客户端后重写配置</span></div>
+            </div>
+            <div class="card">
+              <div class="ch"><div class="t">功能开关</div></div>
+              <div style="padding:4px 0 7px" id="toggles">
+                <div class="gm"><div style="min-width:0"><div class="nm">切换前关闭 Steam</div><div class="sub">避免配置被占用写不进去</div></div><button class="tg on" data-set="closeSteamBeforeSwitch"><i></i></button></div>
+                <div class="gm"><div style="min-width:0"><div class="nm">上架逐件确认</div><div class="sub">每件上架前弹确认，防手滑</div></div><button class="tg on" data-set="confirmEach"><i></i></button></div>
+                <div class="gm"><div style="min-width:0"><div class="nm">加密 SSFN 凭证</div><div class="sub">用系统密钥环保存，拒绝明文</div></div><button class="tg on" data-set="encryptSsfn"><i></i></button></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="ch"><div class="t">最近操作</div><div class="r"><span class="pill n" id="logCount">0 条</span></div></div>
+              <div id="logList" style="padding:4px 0 6px;max-height:186px;overflow:auto"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 饰品仓库 -->
+      <section class="pg" data-p="inventory">
+        <div class="ph">
+          <div><h2>饰品仓库</h2><div class="mt" id="invSub">选择账号与游戏后拉取</div></div>
+          <div class="r">
+            <button class="btn p" id="invQuickCards" title="自动切到 Steam 社区（753），自动筛选卡牌与背景表情并按底价一键勾选填价">卡牌/掉落物一键清仓</button>
+            <button class="btn g" id="invQuote">查询行情</button>
+            <button class="btn g" id="invCostBtn" title="从买入记录批量回填成本，或导入导出 CSV">成本管理</button>
+            <button class="btn g" id="invWatchBtn" title="查看每 6 小时对比出的库存增减记录">库存变动</button>
+            <button class="btn s" id="invReload">重新拉取</button>
+          </div>
+        </div>
+
+        <div class="tool">
+          <span class="lb">账号</span>
+          <select id="invAcc"></select>
+          <span class="lb">游戏</span>
+          <select id="invApp" style="min-width:190px;max-width:230px"></select>
+          <span class="inp" style="width:120px" title="任何 AppID 都能填，注册表没有的会自动识别并保存">
+            <input id="invAppCustom" placeholder="自定义AppID" />
+          </span>
+          <button class="btn s" id="invAppAdd" title="识别这个 AppID 的游戏名，并探测它有没有开通市场">添加</button>
+          <button class="btn s" id="invProbe" title="逐个询问 Steam：这个账号在哪些游戏里真的有物品">探测库存</button>
+          <span class="lb">策略</span>
+          <select id="invStrat">
+            <option value="low-1" selected>最低价 −¥0.01（快速成交）</option>
+            <option value="low-0">匹配最低价（当前官方底价）</option>
+            <option value="low-97">最低价 × 97%（急速甩卖）</option>
+            <option value="low-95">最低价 × 95%（大清仓甩卖）</option>
+            <option value="med-0">当前中位价（保本出）</option>
+            <option value="med-102">中位价 +2%（行情看涨）</option>
+            <option value="med-105">中位价 +5%（高挂博弈）</option>
+            <option value="manual">手动填价</option>
+          </select>
+          <span class="sp"></span>
+          <button class="btn s" id="invApply">应用策略到全部</button>
+        </div>
+
+        <!-- 过滤条：库存动辄上千件，没有搜索/筛选等于不可用 -->
+        <div class="tool filters" style="flex-wrap:wrap;gap:8px">
+          <span class="inp srch">
+            <svg class="ico" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.2"/><path d="M10.3 10.3L14 14"/></svg>
+            <input id="invSearch" placeholder="搜索物品名或类型" />
+          </span>
+          <div class="seg" id="invFilter">
+            <button class="tab on" data-f="all">全部</button>
+            <button class="tab" data-f="sellable">可上架</button>
+            <button class="tab" data-f="blocked">不可上架</button>
+            <button class="tab" data-f="priced">已定价</button>
+            <button class="tab" data-f="unpriced">未定价</button>
+          </div>
+          <div class="seg" id="invCatFilter">
+            <button class="tab on" data-cat="all">全部品类</button>
+            <button class="tab" data-cat="card">卡牌</button>
+            <button class="tab" data-cat="bg">背景</button>
+            <button class="tab" data-cat="emoji">表情</button>
+            <button class="tab" data-cat="gem">宝珠</button>
+            <button class="tab" data-cat="box">箱子</button>
+          </div>
+          <select id="invSort" title="排序方式">
+            <option value="qty">数量 ↓</option>
+            <option value="value">市值 ↓</option>
+            <option value="price">单价 ↓</option>
+            <option value="name">名称</option>
+          </select>
+          <span class="sp"></span>
+          <span class="tag" id="invCount" style="display:none">—</span>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div class="tr hd" style="grid-template-columns:34px minmax(0,1fr) 52px 105px 115px 92px 95px 105px 85px 80px">
+            <span><input type="checkbox" id="invAll" /></span>
+            <span>物品 (品类标签)</span>
+            <span style="text-align:center">数量</span>
+            <span style="text-align:right">市场最低</span>
+            <span style="text-align:right">挂单价</span>
+            <span style="text-align:right" title="最高求购价：现在挂这个价可以立刻卖给求购单">求购价</span>
+            <span style="text-align:right">到手/件</span>
+            <span style="text-align:right">小计</span>
+            <span style="text-align:right">状态</span>
+            <span style="text-align:right">操作</span>
+          </div>
+          <div class="wrap"><div id="invBody" class="tbl"></div></div>
+          <div class="sum">
+            <div><div class="k">已选</div><div class="v" id="selCount">0 件</div></div>
+            <div><div class="k">挂单合计</div><div class="v" id="selGross">¥0.00</div></div>
+            <div><div class="k">Steam到手</div><div class="v" id="selNet">¥0.00</div></div>
+            <div><div class="k" title="按主流 0.73 挂刀比估算的折现参考">折现参考 (0.73)</div><div class="v" id="selCash" style="color:var(--dim)">¥0.00</div></div>
+            <div class="r"><span class="k" id="sellState"></span><button class="btn p" id="sellStart">批量上架</button></div>
+          </div>
+        </div>
+        <div class="prog" id="sellProg" style="display:none"><i></i></div>
+      </section>
+
+      <!-- 市场挂单 -->
+      <section class="pg" data-p="orders">
+        <div class="ph">
+          <div><h2>市场挂单</h2><div class="mt" id="ordSub">同步后可下架，改价需先下架再重新上架</div></div>
+          <div class="r">
+            <button class="btn s" id="ordUndo" title="撤销最近 30 分钟内的批量改价或下架">撤销上次批量</button>
+            <button class="btn s" id="ordConfirm" title="打开 Steam 市场待确认清单（挂单需手机令牌确认）">手机确认</button>
+            <button class="btn s" id="ordCheckPrice" title="一键查询当前挂单的最新市场在售底价，检测是否已被他人压价">一键比价检测</button>
+            <button class="btn s" id="ordCancelUnderpriced" title="一键下架所有已被他人低价压单的物品，方便重新低价上架" disabled>撤单被压单物品</button>
+            <button class="btn s" id="ordStale" title="只显示挂超过 7 天还没卖出的挂单">只看滞销</button>
+            <button class="btn s" id="ordRestockBtn" title="卖出后自动用库存里的同款重新上架">自动补货</button>
+            <button class="btn p" id="ordSync">同步挂单</button>
+          </div>
+        </div>
+
+        <!-- 当前在售挂单汇总看板 -->
+        <div class="orders-summary-bar">
+          <div class="os-item"><span class="os-lbl">在售挂单数</span><b class="os-val" id="ordTotalCount">0 件</b></div>
+          <div class="os-item"><span class="os-lbl">挂单总售价</span><b class="os-val" id="ordTotalGross">¥0.00</b></div>
+          <div class="os-item"><span class="os-lbl">预计到手总额 (净到手)</span><b class="os-val green" id="ordTotalNet">¥0.00</b></div>
+          <div class="os-item"><span class="os-lbl">Steam手续费</span><b class="os-val dim" id="ordTotalFee">¥0.00</b></div>
+        </div>
+
+        <!-- 挂单账龄分布：一眼看出钱压在哪一档 -->
+        <div class="age-buckets" id="ordAging" style="display:none">
+          <div class="ab"><span>0–7 天</span><b id="ab0">0 件</b><em id="ab0v">¥0.00</em></div>
+          <div class="ab"><span>8–30 天</span><b id="ab1">0 件</b><em id="ab1v">¥0.00</em></div>
+          <div class="ab"><span>31–90 天</span><b id="ab2">0 件</b><em id="ab2v">¥0.00</em></div>
+          <div class="ab warn"><span>90 天以上</span><b id="ab3">0 件</b><em id="ab3v">¥0.00</em></div>
+        </div>
+
+        <div class="ord-batch" id="ordBatch" style="display:none">
+          <span class="ob-cnt" id="ordBatchCount">已选 0 件</span>
+          <span class="dim2" id="ordBatchSum"></span>
+          <span style="flex:1"></span>
+          <span class="inp" style="width:112px"><input id="ordBatchPrice" placeholder="新价格 ¥" inputmode="decimal" /></span>
+          <button class="btn s" id="ordBatchDry" title="只检查哪些会成功、哪些被风控拦截，不真的操作">试运行</button>
+          <button class="btn s" id="ordBatchReprice" title="先下架，再按新价格重新上架">批量改价</button>
+          <button class="btn s" id="ordBatchFollow" title="查询当前最低价，按「最低价 -0.01」逐件改价">跟到最低价</button>
+          <button class="btn s" id="ordBatchPriceSuggest" title="结合近 7/30 天成交分位给建议价">智能定价</button>
+          <button class="btn s" id="ordBatchRemove" style="color:var(--red)">批量下架</button>
+          <button class="btn s" id="ordBatchClear">取消选择</button>
+        </div>
+
+        <div class="card">
+          <div class="tr hd" style="grid-template-columns:28px minmax(0,1fr) 110px 110px 100px 84px">
+            <span><input type="checkbox" id="ordSelAll" title="全选在售挂单" /></span>
+            <span>物品 / assetid</span><span style="text-align:right">挂单售价</span><span style="text-align:right">预计到手</span><span style="text-align:center">状态</span><span style="text-align:right">操作</span>
+          </div>
+          <div class="wrap"><div id="ordBody" class="tbl"></div></div>
+          <div class="cf"><span id="ordFoot">尚未同步</span></div>
+        </div>
+      </section>
+
+      <!-- 账号管理 -->
+      <section class="pg" data-p="accounts">
+        <div class="ph">
+          <div><h2>账号管理 <span class="pill" id="accCount" style="font-size:10.5px;vertical-align:2px"></span></h2><div class="mt" id="accSub">从本地 Steam 配置读取，不接触密码</div></div>
+          <div class="r"><button class="btn s" id="accHealth" title="逐个检查每个账号的网页会话是否有效、有没有导入令牌">账号体检</button><button class="btn s" id="accGuard" title="导入 SDA 导出的 .maFile；导入后挂单可在软件内直接确认，不用再掏手机">导入手机令牌</button><button class="btn s" id="accGuardDel" style="display:none" title="移除已导入的手机令牌">移除令牌</button><button class="btn s" id="accDiag">连接自检</button><button class="btn s" id="accScan">重新扫描</button><button class="btn p" id="accLogin">网页登录取 Cookie</button></div>
+        </div>
+        <div class="acards" id="accBody"></div>
+
+        <!-- Epic 账号（免费领取用）；Steam 账号走上面的本地配置，这两套互不影响 -->
+        <div class="card" style="margin-top:14px;padding:14px">
+          <div class="ch" style="padding:0 0 10px">
+            <div>
+              <div class="t">Epic 账号 <span class="pill" id="epicAccCount" style="font-size:10px;vertical-align:2px"></span></div>
+              <div class="s">用于免费游戏一键领取，可以登录多个号；取消「参与」后批量领取会跳过该号</div>
+            </div>
+            <div class="r"><button class="btn p" id="epicAdd">添加 Epic 账号</button></div>
+          </div>
+          <div id="epicAccList" class="acards"></div>
+        </div>
+
+        <!-- GOG 账号（赠送领取 / 库同步用） -->
+        <div class="card" style="margin-top:14px;padding:14px">
+          <div class="ch" style="padding:0 0 10px">
+            <div>
+              <div class="t">GOG 账号 <span class="pill" id="gogAccCount" style="font-size:10px;vertical-align:2px"></span></div>
+              <div class="s">用于 GOG 免费赠送一键领取和游戏库同步；登录用内嵌窗口，Cookie 只留在本机</div>
+            </div>
+            <div class="r"><button class="btn p" id="gogAdd">登录 GOG</button></div>
+          </div>
+          <div id="gogAccList" class="acards"></div>
+        </div>
+      </section>
+
+      <!-- 游戏库 -->
+      <section class="pg" data-p="library">
+        <div class="ph">
+          <div><h2>游戏库</h2><div class="mt" id="libSub">扫描已安装的 Steam 游戏</div></div>
+          <div class="r">
+            <div class="seg" id="libSource">
+              <button class="tab on" data-src="steam">Steam</button>
+              <button class="tab" data-src="epic">Epic</button>
+              <button class="tab" data-src="gog">GOG</button>
+            </div>
+            <button class="btn s" id="libFetchOwned" title="登录后自动识别全部已拥有游戏（含未安装），无需手动填 API Key">拉取全部已拥有游戏</button>
+            <button class="btn p" id="libScan">扫描游戏库</button>
+          </div>
+        </div>
+        <div class="tool" id="libEpicBar" style="display:none">
+          <span class="lb">Epic 账号</span>
+          <select class="sel" id="libEpicAcc" style="min-width:180px"></select>
+          <button class="btn p" id="libEpicFetch">拉取 Epic 库</button>
+          <span class="sp"></span>
+          <span class="dim2" id="libEpicHint">在「账号管理」里添加 Epic 账号后可读取它的全部游戏</span>
+        </div>
+        <div class="tool" id="libGogBar" style="display:none">
+          <span class="lb" id="libGogState">GOG 未登录</span>
+          <button class="btn s" id="libGogLogin">登录 GOG</button>
+          <button class="btn p" id="libGogFetch" style="display:none">拉取 GOG 库</button>
+          <span class="sp"></span>
+          <span class="dim2">登录用内嵌窗口，Cookie 只留在本机</span>
+        </div>
+        <div class="tool" id="libSteamTool">
+          <div class="tabs" id="libFilter"></div>
+          <span class="inp srch">
+            <svg class="ico" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.2"/><path d="M10.3 10.3L14 14"/></svg>
+            <input id="libSearch" placeholder="搜索游戏名或 AppID" />
+          </span>
+          <span class="sp"></span>
+          <div class="seg" id="libShape">
+            <button class="tab on" data-shape="portrait">竖版封面</button>
+            <button class="tab" data-shape="wide">横版封面</button>
+          </div>
+        </div>
+        <div class="ggrid" id="libBody"></div>
+      </section>
+
+      <!-- 游戏查价与挂机资讯 -->
+      <section class="pg" data-p="storeNews">
+        <div class="ph">
+          <div><h2>游戏查价与挂机掉落资讯</h2><div class="mt">实时查询 Steam 商店游戏价格与史低折扣 · 监控热门挂机掉落新作上线动向</div></div>
+          <div class="r">
+            <span class="pill" id="idleUpdated">行情读取中…</span>
+            <input id="idleAddApp" placeholder="AppID" style="width:92px;height:28px" />
+            <button class="btn s" id="idleAddBtn" title="把这个游戏加入挂机行情与掉落监控">加入监控</button>
+            <button class="btn p" id="newsRefresh">刷新行情</button>
+          </div>
+        </div>
+
+        <!-- 游戏价格速查卡片 -->
+        <div class="card" style="padding:14px">
+          <div class="ch" style="padding:0 0 10px"><div class="t">Steam 商店实时价格与史低折扣查询</div></div>
+          <div class="tool" style="gap:10px">
+            <span class="inp srch" style="flex:1;max-width:480px">
+              <svg class="ico" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.2"/><path d="M10.3 10.3L14 14"/></svg>
+              <input id="storeSearchInput" placeholder="输入游戏名称 (如 黑神话悟空 / 艾尔登法环) 或 AppID (如 2358720)" />
+            </span>
+            <button class="btn p" id="storeSearchBtn">查询价格</button>
+            <button class="btn s" id="wishImport" title="读取 Steam 愿望单，一次查完前 40 个游戏的价格">导入愿望单</button>
+            <span class="lb" style="margin-left:8px">快捷搜索：</span>
+            <button class="btn s" data-quick="2358720">黑神话</button>
+            <button class="btn s" data-quick="1245620">艾尔登法环</button>
+            <button class="btn s" data-quick="1091500">赛博朋克2077</button>
+            <button class="btn s" data-quick="730">CS2</button>
+            <button class="btn s" data-quick="2923300">Banana</button>
+          </div>
+          <div id="storeSearchResult" style="margin-top:12px;display:none"></div>
+          <div id="storeHolding" class="fld-hint" style="display:none"></div>
+          <div class="rowx" id="storeAlertRow" style="display:none;gap:8px;align-items:flex-end;margin-top:10px">
+            <label class="fld" style="flex:1"><span>价格提醒：目标价（元，0 表示不看）</span><input id="storeAlertTarget" type="number" min="0" step="1" placeholder="例如 150" /></label>
+            <label class="fld" style="flex:1"><span>打折达到（%）</span><input id="storeAlertDiscount" type="number" min="0" max="100" step="5" placeholder="例如 50" /></label>
+            <button class="btn s" id="storeAlertAdd" style="height:34px">加入提醒</button>
+          </div>
+          <div id="storeAlertsBox" style="margin-top:10px"></div>
+          <div id="wishlistBox" style="margin-top:10px"></div>
+        </div>
+
+        <!-- 挂机游戏动态卡片 -->
+        <div class="card" style="padding:14px">
+          <div class="ch" style="padding:0 0 10px">
+            <div class="t">最新热门与近期挂机掉落游戏通告</div>
+            <div class="r" style="gap:8px;flex-wrap:wrap">
+              <span class="fld-hint" style="margin:0">行情来自 Steam 社区市场，10 分钟缓存</span>
+              <select id="idleSort" title="排序方式" style="height:26px;padding:0 8px;border-radius:6px;background:var(--input-bg);border:.5px solid var(--input-border);color:var(--input-text);font-size:12px">
+                <option value="default">默认顺序</option>
+                <option value="earn">按估算日收益</option>
+                <option value="price">按最低在售</option>
+                <option value="count">按市场条目数</option>
+              </select>
+              <label class="free-only"><input type="checkbox" id="idleHideEmpty"> 只看有在售</label>
+            </div>
+          </div>
+          <div id="idleGamesList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px"></div>
+        </div>
+      </section>
+
+      <!-- 每日促销：Steam 今日特惠 + GOG 折扣榜 + Epic/Humble/Fanatical -->
+      <section class="pg" data-p="dailyDeals">
+        <div class="ph">
+          <div><h2>每日促销</h2><div class="mt" id="dealSub">Steam · GOG · Epic · Humble · Fanatical · 每 20 分钟缓存</div></div>
+          <div class="r">
+            <span class="pill" id="dealUpdated">读取中…</span>
+            <div class="seg" id="dealFilter">
+              <button class="tab on" data-df="all">全部</button>
+              <button class="tab" data-df="steam">Steam</button>
+              <button class="tab" data-df="gog">GOG</button>
+              <button class="tab" data-df="epic">Epic</button>
+              <button class="tab" data-df="other">其他</button>
+            </div>
+            <label class="free-only"><input type="checkbox" id="dealHideOwned" /> 隐藏我已有的</label>
+            <button class="btn p" id="dealRefresh">刷新促销</button>
+          </div>
+        </div>
+        <div class="free-grid" id="dealGrid"></div>
+        <div class="free-note" id="dealNote">Steam / GOG 的价格跟随「设置 → 查价与挂机」的区服；Epic、Humble、Fanatical 经 CheapShark 聚合，报价为美元。Steam 条目可留空按「再降 10%」提醒，也可以填一个目标价；填了 ITAD Key 后还会标出史低。</div>
+      </section>
+
+      <!-- 免费游戏领取 -->
+      <section class="pg" data-p="free">
+        <div class="ph">
+          <div><h2>免费游戏领取</h2><div class="mt" id="freeSub">Steam / Epic / GOG 当前可领的活动 · 每 15 分钟自动更新</div></div>
+          <div class="r">
+            <div class="seg" id="freeFilter">
+              <button class="tab on" data-fp="all">全部</button>
+              <button class="tab" data-fp="epic">Epic</button>
+              <button class="tab" data-fp="steam">Steam</button>
+              <button class="tab" data-fp="gog">GOG</button>
+            </div>
+            <label class="free-only"><input type="checkbox" id="freeGameOnly"> 只看完整游戏</label>
+            <button class="btn s" id="freeClaimAll">领取全部 Epic</button>
+            <button class="btn s" id="freeExport" title="把当前免费活动导出为 CSV，方便对照或存档">导出 CSV</button>
+            <button class="btn p" id="freeRefresh">刷新</button>
+          </div>
+        </div>
+        <div class="free-epic" id="freeEpicBar"></div>
+        <div class="free-grid" id="freeList"></div>
+        <div class="free-note">Epic、GOG 和能落到 Steam 商店的免费包都可以直接点「一键领取」入库；落到第三方站点的活动会帮你打开网页，由你去领。</div>
+      </section>
+    </div>
+  </div>
+
+  <div class="sb">
+    <span id="sbLeft">就绪</span>
+    <div class="r"><span id="sbMid"></span><span id="sbRight"></span></div>
+  </div>
+</div>
+
+<!-- 设置抽屉遮罩 -->
+<div class="drawer-mask" id="drawerMask"></div>
+
+<!-- 设置抽屉 -->
+<div class="drawer" id="drawer">
+  <div class="dh"><span>设置</span><button class="ib" id="drawerClose" title="关闭 (Esc)">✕</button></div>
+  <div class="dbody">
+    <div class="rowx" style="gap:8px;margin:0 0 8px">
+      <button class="btn s" id="wizOpen">重新查看使用向导</button>
+      <span class="fld-hint" style="margin:0;white-space:nowrap">Ctrl+K 命令面板</span>
+    </div>
+    <div class="set-sec" style="margin-top:6px">外观与路径</div>
+    <div class="fld"><span>外观主题</span>
+      <!-- 用分段按钮代替原生 select：原生下拉在无边框窗口里会重复绘制选项 -->
+      <div class="seg" id="setTheme">
+        <button type="button" class="seg-btn" data-theme="light">浅色</button>
+        <button type="button" class="seg-btn" data-theme="dark">深色</button>
+        <button type="button" class="seg-btn" data-theme="auto">跟随系统</button>
+      </div>
+      <div class="fld-hint">选「跟随系统」时：Windows 白天用浅色、夜间用深色</div>
+    </div>
+    <label class="fld"><span>Steam 安装目录</span><div class="rowx"><input id="setSteamPath" placeholder="自动探测" /><button class="btn s" id="setChoosePath">选择</button></div></label>
+    <label class="fld"><span>界面缩放（看不清就调大，会记住）</span>
+      <div class="rowx">
+        <input id="setZoom" type="range" min="0.85" max="1.6" step="0.05" style="flex:1" />
+        <b id="setZoomVal" style="width:46px;text-align:right;font-size:12.5px">108%</b>
+      </div>
+    </label>
+    <div class="set-sec">交易节奏</div>
+    <label class="fld"><span>查价间隔（毫秒）</span><input id="setQuoteInt" type="number" min="1200" step="100" /></label>
+    <label class="fld"><span>上架间隔（毫秒）</span><input id="setSellInt" type="number" min="2000" step="500" /></label>
+    <label class="fld"><span>价格保护阈值（低于最低价多少比例就拦截）</span><input id="setGuard" type="number" min="0.1" max="1" step="0.05" /></label>
+
+    <div class="set-sec">风险熔断</div>
+    <label class="fld"><span>启用风控（价格上限 · 低于成本 · 批量上限）</span>
+      <input id="setRiskOn" type="checkbox" />
+    </label>
+    <label class="fld"><span>单件价格上限（元，0 表示不限）</span><input id="setMaxPrice" type="number" min="0" step="100" /></label>
+    <label class="fld"><span>低于成本多少比例就拦截</span><input id="setMinCost" type="number" min="0" max="1" step="0.05" /></label>
+    <label class="fld"><span>每日改价次数上限（0 表示不限）</span><input id="setMaxReprice" type="number" min="0" step="10" /></label>
+    <label class="fld"><span>单次批量上架/改价上限（件）</span><input id="setMaxBatch" type="number" min="1" step="5" /></label>
+    <label class="fld"><span>风控黑名单（每行一个关键词，命中的物品不做自动改价）</span>
+      <textarea id="setRiskBlack" rows="3" placeholder="例如：印花 / 某个系列名"></textarea>
+    </label>
+    <label class="fld"><span>风控白名单（每行一个关键词，命中后跳过「低于成本」拦截）</span>
+      <textarea id="setRiskWhite" rows="3" placeholder="例如：绝版卡牌"></textarea>
+    </label>
+    <div class="fld-hint">按市场名匹配，不区分大小写、支持片段。黑白名单只影响后台自动任务，手动操作不受限。</div>
+    <div class="note">风控只拦截、不改价。被拦下的物品会在上架计划里写明原因。</div>
+
+    <div class="set-sec">自动化</div>
+    <label class="fld"><span>维护模式（暂停补货、阶梯降价、定时巡检）</span>
+      <input id="setPaused" type="checkbox" />
+    </label>
+    <div class="fld-hint">暂停的是后台自动任务；手动点「立即检查」不受影响。自己做批量操作时建议先打开。</div>
+    <label class="fld"><span>只在指定时段运行自动任务（补货 / 阶梯降价 / 自动守价）</span>
+      <input id="setWindowOn" type="checkbox" />
+    </label>
+    <div class="rowx" style="gap:8px">
+      <label class="fld" style="flex:1"><span>开始（时）</span><input id="setWindowStart" type="number" min="0" max="23" step="1" /></label>
+      <label class="fld" style="flex:1"><span>结束（时）</span><input id="setWindowEnd" type="number" min="0" max="23" step="1" /></label>
+    </div>
+    <div class="fld-hint">支持跨午夜（例如 22 点到次日 7 点）。手动「立即检查」不受时段限制。</div>
+
+    <div class="set-sec">阶梯降价</div>
+    <label class="fld"><span>启用（挂满 N 天没卖掉就自动降一档）</span>
+      <input id="setLadderOn" type="checkbox" />
+    </label>
+    <label class="fld"><span>挂满多少天降一次</span><input id="setLadderDays" type="number" min="1" max="90" step="1" /></label>
+    <label class="fld"><span>每次降幅（%）</span><input id="setLadderPct" type="number" min="1" max="50" step="1" /></label>
+    <label class="fld"><span>最多降几档（降到底就停）</span><input id="setLadderMax" type="number" min="1" max="20" step="1" /></label>
+    <label class="fld"><span>每轮最多调整（件）</span><input id="setLadderRun" type="number" min="1" max="20" step="1" /></label>
+    <div class="note">降到成本 × 风控最低比例时自动停手；改价次数计入每日上限。</div>
+
+    <div class="set-sec">自动守价（被压价时跟价）</div>
+    <label class="fld"><span>启用（别人挂得比我便宜时自动跟到最低价 -0.01）</span>
+      <input id="setPgOn" type="checkbox" />
+    </label>
+    <label class="fld"><span>只通知不改价（先观察，不自动动挂单）</span>
+      <input id="setPgNotifyOnly" type="checkbox" />
+    </label>
+    <label class="fld"><span>最小降价空间（元，差价小于这个数不动）</span><input id="setPgGap" type="number" min="0.01" max="10" step="0.01" /></label>
+    <label class="fld"><span>每轮最多跟价（件）</span><input id="setPgRun" type="number" min="1" max="20" step="1" /></label>
+    <label class="fld"><span>每日最多跟价（件，0 表示不限）</span><input id="setPgDaily" type="number" min="0" step="5" /></label>
+    <label class="fld"><span>检查间隔（分钟）</span><input id="setPgInterval" type="number" min="5" step="5" /></label>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="pgRun" style="flex:1;justify-content:center">立即检查一轮</button>
+    </div>
+    <div class="fld-hint" id="pgStatus">正在读取…</div>
+    <div class="note">只对当前网页登录账号生效；跟价会计入每日改价上限，低于成本 × 风控比例时停手。</div>
+
+    <div class="set-sec">成本自动记录</div>
+    <label class="fld"><span>从成交记录自动回填成本（只补还没有成本的物品）</span>
+      <input id="setAutoCost" type="checkbox" />
+    </label>
+    <label class="fld"><span>覆盖我手工填过的成本（谨慎开启）</span>
+      <input id="setAutoCostOverwrite" type="checkbox" />
+    </label>
+    <div class="fld-hint">只统计人民币成交；同一物品多次买入取平均价，并记录买入次数。</div>
+
+    <div class="set-sec">通知外发</div>
+    <div class="fld"><span>重要事件推到手机/群（桌面通知始终保留）</span>
+      <div class="seg" id="setNotifyChannel" style="flex-wrap:wrap;gap:4px">
+        <button type="button" class="seg-btn" data-ch="none">关闭</button>
+        <button type="button" class="seg-btn" data-ch="telegram">TG</button>
+        <button type="button" class="seg-btn" data-ch="wecom">企微</button>
+        <button type="button" class="seg-btn" data-ch="dingtalk">钉钉</button>
+        <button type="button" class="seg-btn" data-ch="serverchan">Server酱</button>
+        <button type="button" class="seg-btn" data-ch="webhook">Webhook</button>
+        <button type="button" class="seg-btn" data-ch="qqbot">QQ 机器人</button>
+      </div>
+    </div>
+    <label class="fld" id="nfTgToken" style="display:none"><span>Bot Token（加密保存，不回显）</span>
+      <div class="rowx"><input id="setTgToken" type="password" placeholder="已保存则留空" /><button class="btn s" id="clrTgToken" title="清除已保存的 token">清除</button></div>
+    </label>
+    <label class="fld" id="nfTgChat" style="display:none"><span>Chat ID</span><input id="setTgChat" placeholder="例如 123456789" /></label>
+    <label class="fld" id="nfWebhook" style="display:none"><span>群机器人 Webhook 地址（加密保存）</span>
+      <div class="rowx"><input id="setWebhook" type="password" placeholder="已保存则留空" /><button class="btn s" id="clrWebhook" title="清除已保存的地址">清除</button></div>
+    </label>
+    <label class="fld" id="nfScKey" style="display:none"><span>Server酱 SendKey（加密保存）</span>
+      <div class="rowx"><input id="setScKey" type="password" placeholder="已保存则留空" /><button class="btn s" id="clrScKey" title="清除已保存的 SendKey">清除</button></div>
+    </label>
+    <label class="fld" id="nfQqAppId" style="display:none"><span>QQ 机器人 AppID（q.qq.com 创建机器人后获得）</span>
+      <input id="setQqAppId" placeholder="例如 102012345" />
+    </label>
+    <label class="fld" id="nfQqSecret" style="display:none"><span>AppSecret（加密保存，不回显）</span>
+      <div class="rowx"><input id="setQqSecret" type="password" placeholder="已保存则留空" /><button class="btn s" id="clrQqSecret" title="清除已保存的 AppSecret">清除</button></div>
+    </label>
+    <div class="fld" id="nfQqChannel" style="display:none"><span>推送到哪个子频道</span>
+      <div class="rowx"><input id="setQqChannelId" placeholder="点子频道按钮自动填，或手动粘贴" /><button class="btn s" id="qqFetchChannels">列出频道</button></div>
+      <div class="seg" id="qqChannelPick" style="flex-wrap:wrap;gap:4px;margin-top:2px"></div>
+      <div class="fld-hint">腾讯从 2025 年 4 月起关闭了 QQ 机器人的群聊/私聊主动消息，只能推到 QQ 频道的文字子频道；先在 QQ 频道里把机器人加进去，再点「列出频道」。</div>
+    </div>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="notifyTest" style="flex:1;justify-content:center">发送测试</button>
+    </div>
+    <div class="fld-hint" id="notifyStatus">未配置</div>
+
+    <label class="fld"><span>卖出通知（发现新成交就推送物品名和到手金额）</span>
+      <input id="setSaleWatch" type="checkbox" />
+    </label>
+    <label class="fld"><span>卖出检查间隔（分钟）</span><input id="setSaleInt" type="number" min="5" step="5" /></label>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="saleCheck" style="flex:1;justify-content:center">立即检查卖出</button>
+    </div>
+    <div class="fld-hint" id="saleStatus">尚未检查</div>
+    <div class="fld-hint">读的是当前登录账号的 Steam 市场成交历史，手机或网页卖出的也算。第一次开启只记录现有记录，之后有新成交才推；推送走上面选的通知渠道。</div>
+
+    <div class="set-sec">通知体验与定价</div>
+    <label class="fld"><span>免打扰时段（只静音通知，后台任务照常跑）</span>
+      <input id="setQuietOn" type="checkbox" />
+    </label>
+    <div class="rowx" style="gap:8px">
+      <label class="fld" style="flex:1"><span>从（点）</span><input id="setQuietStart" type="number" min="0" max="23" step="1" /></label>
+      <label class="fld" style="flex:1"><span>到（点）</span><input id="setQuietEnd" type="number" min="0" max="23" step="1" /></label>
+    </div>
+    <label class="fld"><span>每日到手目标（元，0 表示不设）</span><input id="setDailyGoal" type="number" min="0" step="10" /></label>
+    <div class="fld"><span>自动定价尾数</span>
+      <div class="seg" id="setPriceEnding">
+        <button type="button" class="seg-btn on" data-end="none">原样</button>
+        <button type="button" class="seg-btn" data-end="99">.99</button>
+        <button type="button" class="seg-btn" data-end="98">.98</button>
+        <button type="button" class="seg-btn" data-end="int">整数</button>
+      </div>
+      <div class="fld-hint">批量/自动填价时把价格往下取到尾数，看起来不像脚本；低价物品保持原样。</div>
+    </div>
+
+    <div class="set-sec">查价与挂机</div>
+    <div class="fld"><span>商店价格区服</span>
+      <div class="seg" id="setStoreRegion" style="flex-wrap:wrap;gap:4px">
+        <button type="button" class="seg-btn" data-region="CN">国区</button>
+        <button type="button" class="seg-btn" data-region="HK">港区</button>
+        <button type="button" class="seg-btn" data-region="TW">台区</button>
+        <button type="button" class="seg-btn" data-region="US">美区</button>
+        <button type="button" class="seg-btn" data-region="JP">日区</button>
+      </div>
+      <div class="fld-hint">影响商店查价与价格提醒；市场物品价格仍按账号钱包币种显示。</div>
+    </div>
+    <label class="fld"><span>IsThereAnyDeal API Key（可选，用于查史低；加密保存）</span>
+      <div class="rowx"><input id="setItadKey" type="password" autocomplete="off" placeholder="没填就不显示史低" /><button class="btn s" id="clrItadKey" title="清除已保存的 Key">清除</button></div>
+    </label>
+    <div class="fld-hint">在 isthereanydeal.com 免费申请；只用于查询历史最低价，查价本身不依赖它。</div>
+    <label class="fld"><span>挂机掉落提醒（新掉落且现价达到门槛时推送）</span>
+      <input id="setDropWatch" type="checkbox" />
+    </label>
+    <label class="fld"><span>掉落价格门槛（元）</span><input id="setDropMin" type="number" min="0" step="1" /></label>
+    <label class="fld"><span>掉落检查间隔（分钟）</span><input id="setDropInt" type="number" min="10" step="5" /></label>
+    <label class="fld"><span>掉落排除关键词（逗号分隔，匹配物品名）</span>
+      <input id="setDropIgnore" placeholder="例如：箱子, 涂鸦, 喷漆" maxlength="200" />
+    </label>
+    <div class="fld-hint">命中关键词的掉落不查价、不推送，适合把不值钱的箱子类过滤掉。</div>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="dropCheck" style="flex:1;justify-content:center">立即检查掉落</button>
+    </div>
+    <div class="fld-hint" id="dropStatus">尚未检查</div>
+    <div class="fld-hint">只监控内置挂机清单里你真正拥有的游戏，以及「查价与挂机」页点过「监控」的游戏；第一次只建基线，不补发旧掉落。</div>
+
+    <div class="set-sec">安全与提醒</div>
+    <label class="fld"><span>登录态预警（每小时检查一次，失效时通知）</span>
+      <input id="setSessionWarn" type="checkbox" />
+    </label>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="sessionCheck" style="flex:1;justify-content:center">立即检查登录态</button>
+    </div>
+    <div class="fld-hint" id="sessionStatus">尚未检查</div>
+
+    <label class="fld"><span>交易报价提醒（需要 Steam Web API Key）</span>
+      <input id="setTradeWatch" type="checkbox" />
+    </label>
+    <label class="fld"><span>Steam Web API Key（在 steamcommunity.com/dev/apikey 申请）</span>
+      <input id="setSteamKey" type="password" autocomplete="off" placeholder="32 位 Key" />
+    </label>
+    <label class="fld"><span>检查间隔（分钟）</span><input id="setTradeInt" type="number" min="3" step="1" /></label>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="tradeCheck" style="flex:1;justify-content:center">立即检查报价</button>
+    </div>
+    <div class="fld-hint" id="tradeStatus">尚未检查</div>
+
+    <label class="fld"><span>AI 助手（可选，兼容 OpenAI 接口；不填不联网）</span>
+      <input id="setAiOn" type="checkbox" />
+    </label>
+    <label class="fld"><span>接口地址</span><input id="setAiBase" placeholder="https://api.openai.com/v1" /></label>
+    <label class="fld"><span>API Key</span><input id="setAiKey" type="password" autocomplete="off" /></label>
+    <label class="fld"><span>模型名</span><input id="setAiModel" placeholder="gpt-4o-mini" /></label>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="aiTest" style="flex:1;justify-content:center">测试接口</button>
+      <button class="btn s" id="aiReportBtn" style="flex:1;justify-content:center">生成 AI 周报</button>
+    </div>
+    <div class="fld-hint" id="aiStatus">开启后可在经营报表里生成周报或直接提问。</div>
+
+    <label class="fld"><span>允许网页采集（浏览器扩展把 Steam 市场当前价发到本机）</span>
+      <input id="setExtOn" type="checkbox" />
+    </label>
+    <label class="fld"><span>令牌（填到浏览器扩展里）</span><input id="extToken" readonly /></label>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="extCopy" style="flex:1;justify-content:center">复制令牌</button>
+      <button class="btn s" id="extOpen" style="flex:1;justify-content:center">打开扩展文件夹</button>
+      <button class="btn s" id="extClear" style="flex:0 0 88px;justify-content:center">清除采集</button>
+    </div>
+    <div class="fld-hint" id="extStatus">只监听 127.0.0.1，不向公网开放；扩展只发送物品名和价格。</div>
+
+    <div class="set-sec">数据归档</div>
+    <div class="fld-hint" id="archiveStat">正在读取…</div>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="archiveExport" style="flex:1;justify-content:center">导出当前账号成交归档</button>
+      <button class="btn s" id="archiveRefresh" style="width:72px;justify-content:center">刷新</button>
+    </div>
+    <div class="fld-hint">成交历史与每日行情会自动存到本地。Steam 只给有限页，归档后才有完整历史；数据在 userData\archive 目录。</div>
+
+    <div class="set-sec">版本更新</div>
+    <label class="fld"><span>更新源地址（留空则不联网检查）</span>
+      <input id="setUpdateUrl" placeholder="https://example.com/steamdesk-latest.json" />
+    </label>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
+    </div>
+    <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
+    <div class="fld-hint">JSON 格式：{"version":"2.6.59","url":"https://.../SteamDesk-2.6.59-x64.exe","notes":"更新说明"}。只做提示下载，不会静默替换程序。</div>
+
+    <div class="set-sec">备份与恢复</div>
+    <div class="rowx" style="gap:8px;margin:6px 0">
+      <button class="btn s" id="backupExport" style="flex:1;justify-content:center">导出备份</button>
+      <button class="btn s" id="backupImport" style="flex:1;justify-content:center">从备份恢复</button>
+    </div>
+    <div class="fld-hint" id="backupStatus">设置、成本、价格提醒、自动化状态可一键搬家（不含登录凭据与成交归档）。</div>
+
+    <div class="note">查价接口没有官方配额，实测约每分钟 20 次后开始限流。间隔调小会更容易撞 429。</div>
+    <button class="btn p" id="setSave" style="width:100%;justify-content:center;height:30px">保存设置</button>
+  </div>
+</div>
+
+<!-- 物品详情：实时 Steam 官方市场行情 -->
+<div class="item-detail" id="itemDetail">
+  <div class="idt-head">
+    <button class="btn s" id="idtBack">‹ 返回库存</button>
+    <span class="sp"></span>
+    <span class="pill" id="idtLive">实时 Steam 市场数据</span>
+  </div>
+  <div class="idt-body">
+    <div class="idt-item">
+      <div id="idtIcon" class="idt-icon"></div>
+      <div style="min-width:0">
+        <div class="idt-name" id="idtName">—</div>
+        <div class="idt-meta" id="idtMeta">—</div>
+      </div>
+      <div class="idt-price">
+        <div class="idt-price-v" id="idtPrice">—</div>
+        <div class="idt-price-l" id="idtPriceSub">当前最低在售</div>
+      </div>
+    </div>
+
+    <div class="idt-card">
+      <div class="idt-card-head">
+        <div>
+          <div class="idt-card-t">售价中位数 / 日成交量</div>
+          <div class="idt-card-s" id="idtChartSub">数据来自 Steam 官方市场成交记录</div>
+        </div>
+        <div class="seg" id="idtRanges">
+          <button class="tab on" data-range="7">7 天</button>
+          <button class="tab" data-range="30">30 天</button>
+          <button class="tab" data-range="90">90 天</button>
+          <button class="tab" data-range="365">1 年</button>
+        </div>
+      </div>
+      <div id="idtChartWrap" class="idt-chart-wrap">
+        <div class="idt-loading" id="idtLoading">正在读取 Steam 官方实时行情…</div>
+      </div>
+      <div class="idt-stats" id="idtStats"></div>
+    </div>
+
+    <div class="idt-card">
+      <div class="idt-card-head">
+        <div>
+          <div class="idt-card-t">价格提醒</div>
+          <div class="idt-card-s">达到你设的价格时弹系统通知，软件运行期间每 15 分钟检查一次</div>
+        </div>
+      </div>
+      <div class="idt-alert-row">
+        <div class="seg" id="idtAlertDir">
+          <button class="tab on" data-adir="below">跌到</button>
+          <button class="tab" data-adir="above">涨到</button>
+        </div>
+        <span class="inp" style="width:130px"><span>¥</span><input id="idtAlertPrice" type="number" step="0.01" min="0.01" placeholder="目标价" /></span>
+        <button class="btn s" id="idtAlertSave">设置提醒</button>
+        <span class="idt-alert-hint" id="idtAlertHint">跌到目标价以下时通知你</span>
+      </div>
+      <div class="idt-alert-list" id="idtAlertList"></div>
+    </div>
+
+    <div class="idt-card" id="idtCostCard">
+      <div class="idt-card-head">
+        <div>
+          <div class="idt-card-t">成本与盈亏</div>
+          <div class="idt-card-s">记录每件的买入价，库存列表会标出盈亏，低于成本标红</div>
+        </div>
+      </div>
+      <div class="idt-alert-row">
+        <span class="inp" style="width:130px"><span>¥</span><input id="idtCostPrice" type="number" step="0.01" min="0" placeholder="每件成本" /></span>
+        <button class="btn s" id="idtCostSave">保存成本</button>
+        <button class="btn s" id="idtCostClear">清除</button>
+        <span class="idt-alert-hint" id="idtCostHint">这件物品还没有记录成本</span>
+      </div>
+      <div class="idt-alert-list" id="idtCostSummary"></div>
+    </div>
+
+    <div class="idt-card" id="idtPolicyCard">
+      <div class="idt-card-head">
+        <div>
+          <div class="idt-card-t">自动改价策略</div>
+          <div class="idt-card-s">只对这件物品生效：可以关掉自动跟价/阶梯降价，或设一个最低自动价</div>
+        </div>
+      </div>
+      <div class="idt-alert-row">
+        <label class="fld" style="width:auto;flex-direction:row;align-items:center;gap:8px;flex:0 0 auto">
+          <input id="idtPolicyAuto" type="checkbox" /><span>允许自动改价</span>
+        </label>
+        <span class="inp" style="width:140px"><span>¥</span><input id="idtPolicyMin" type="number" step="0.01" min="0" placeholder="最低自动价" /></span>
+        <button class="btn s" id="idtPolicySave">保存策略</button>
+        <span class="idt-alert-hint" id="idtPolicyHint">留空表示不限制</span>
+      </div>
+    </div>
+
+    <div class="idt-card" id="idtSellCard">
+      <div class="idt-card-head">
+        <div>
+          <div class="idt-card-t">上架到 Steam 市场</div>
+          <div class="idt-card-s">按你定的价格挂到 Steam 社区市场出售，挂单需要在 Steam 手机令牌确认。</div>
+        </div>
+      </div>
+      <div class="idt-sell-row">
+        <span class="inp" style="width:150px"><span>¥</span><input id="idtSellPrice" type="number" step="0.01" min="0" placeholder="填价" /></span>
+        <span class="idt-net" id="idtNet">预计到手 —</span>
+        <span class="sp"></span>
+        <span class="idt-lowest" id="idtLowest">最低在售 —</span>
+        <span class="idt-lowest" id="idtWebPrice">网页采集 —</span>
+        <button class="btn p" id="idtSellBtn">立即上架</button>
+        <button class="btn s" id="idtReload">刷新行情</button>
+      </div>
+    </div>
+
+    <div class="idt-card" id="idtBuffCard">
+      <div class="idt-card-head">
+        <div>
+          <div class="idt-card-t">BUFF 手动比价</div>
+          <div class="idt-card-s">BUFF 没有公开接口：手动填它现在的在售价，这里直接对比两边到手</div>
+        </div>
+      </div>
+      <div class="idt-alert-row">
+        <span class="inp" style="width:132px"><span>¥</span><input id="idtBuffPrice" type="number" step="0.01" min="0" placeholder="BUFF 价格" /></span>
+        <span class="inp" style="width:108px" title="BUFF 卖出手续费，按你账户实际费率填"><span>%</span><input id="idtBuffFee" type="number" step="0.1" min="0" max="20" placeholder="手续费" /></span>
+        <button class="btn s" id="idtBuffSave">对比并记住</button>
+        <span class="idt-alert-hint" id="idtBuffHint">填价格后显示两边到手差额</span>
+      </div>
+      <div class="idt-alert-list" id="idtBuffResult"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 版本更新弹窗 -->
+<div class="update-modal" id="updateModal">
+  <div class="update-box">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>版本检查与更新</span>
+        <span class="pill g" style="font-size:10.5px">v2.6.59 旗舰版</span>
+      </div>
+      <button class="ib" id="updateModalClose" title="关闭">✕</button>
+    </div>
+    <div class="update-body">
+      <h4>版本更新说明</h4>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px">
+        更新检查：<b>在「设置 → 版本更新」填入更新源地址后生效</b>
+      </div>
+      <div class="update-log">
+        <b>v2.6.59 最新更新特性：</b><br>
+        1. <b>库存表新增「求购价」列</b>：放在「挂单价」和「到手/件」之间，显示当前官网最高求购价和求购单数——也就是现在挂这个价能立刻卖掉的价格；没有求购显示「无求购」，还没查价显示「—」；<br>
+        2. <b>修复挂单价格虚高</b>：Steam 上架的 price 参数是<b>卖家到手</b>金额，旧版本把「买家实付」当成到手金额提交，Steam 又在上面加了 5% + 10%（各自最低 ¥0.07），所以填 0.30 的物品在市场上变成买家实付 ¥0.44。现在提交前按真实手续费反算，填多少到手就是多少；<br>
+        3. <b>修复「到手/件」估算</b>：旧算法固定扣 15%，低价物品实际是 Steam 与发行商各收最低 ¥0.07（合计 ¥0.14），所以 0.30 实际到手只有 0.16 而不是 0.26。现在按真实阶梯计算，与 Steam 我的挂单页面完全一致；<br>
+        4. <b>库存筛选行单行显示</b>：去掉「排序」文字标签（下拉框自带提示），「N 种 · N 件」计数不再被挤到第二行；<br>
+        <b>v2.6.58 更新特性：</b><br>
+        1. <b>账号管理卡片重做</b>：去掉卡片里再套一层边框的「盒中盒」，SteamID64 与最近登录/市场会话改成浅底信息块，头像换成蓝色渐变；当前账号的卡片用淡蓝底 + 蓝色描边标出来，悬停只做 1px 抬起，8 个账号扫一眼就能找到自己在用哪个；<br>
+        2. <b>免费领取状态条分格</b>：Epic / Steam / GOG 各自占一格，平台名和账号名不再从中间折成两行，右侧按钮固定贴右并与文字垂直居中；领取按钮统一成蓝色主按钮，已领取的变成灰色，不再和可领取的抢注意力；<br>
+        3. <b>深色主题细节</b>：设置抽屉里「浅色/深色/跟随系统」的选中块原来和抽屉底色几乎一样，现在提亮一档并加细描边；账号卡选中态与悬停描边改用深色主题的蓝色，不再沿用浅色主题的深蓝；<br>
+        4. <b>降噪</b>：设置抽屉顶部「重新查看使用向导」从整条灰色按钮降成安静的次要入口，不再和下面的主题设置抢视线；<br>
+        5. <b>文案</b>：主题下方提示改为「选「跟随系统」时：Windows 白天用浅色、夜间用深色」，说明它只在跟随系统模式下生效；<br>
+        <b>v2.6.57 更新特性：</b><br>
+        1. <b>设置抽屉分组</b>：新增「外观与路径」「交易节奏」分组标题，所有分组标题滚动时吸顶，长表单翻到哪儿都知道自己在哪一段；输入框统一 36px 高、10px 圆角，主题切换按钮与全局分段控件一致；<br>
+        2. <b>促销卡按钮分层</b>：「去商店」保留白底描边的主要操作，「加提醒」收成无边框 ghost，卡片底部的两个按钮不再抢同一层视线；<br>
+        3. <b>图标统一</b>：去掉游戏库的 🛒/▶、挂机卡的 ⏰、导入令牌的 🔑 等 emoji，按钮改纯文字、弹窗图标换成线性 SVG，不再和系统 emoji 字体混搭；<br>
+        4. <b>细节</b>：分组标题、提示文字与表单间距重新排过，抽屉整体宽度调到 420px，长标签不再挤成两行；<br>
+        <b>v2.6.56 更新特性：</b><br>
+        1. <b>整体视觉重做</b>：换成中性灰底 + 纯白卡片 + 极细边框 + 柔和阴影的桌面应用外观，去掉之前 Win11 设置页的"系统工具感"；深色主题同步调整，卡片不再和背景糊在一起；<br>
+        2. <b>侧栏与页头</b>：侧栏分组标题更清晰、选中项用淡蓝底 + 强调字重，页头标题 22px、副标题改为可读的次级灰，右侧操作区与标题分离；<br>
+        3. <b>数字与表格</b>：概览/挂单的数据卡数值放大到 27px 并使用等宽数字，表格行高 48px、表头更轻、行悬停有反馈，挂单分组头做成"分区标题"；<br>
+        4. <b>控件层级</b>：主按钮实心蓝、次按钮白底描边、低优先级操作改为无边框 ghost（如库存页的查询行情/成本管理/库存变动）；分段筛选改成"白底选中块"，比整块实心蓝更克制；<br>
+        5. <b>细节</b>：卡片悬停只抬 1px、空状态加了图标底座、提示条改成深色浮层、滚动条与滑块跟随强调色；<br>
+        <b>v2.6.55 更新特性：</b><br>
+        1. <b>每日促销加入 Epic 与其他平台</b>：除了 Steam 和 GOG，现在还汇总 Epic、Humble、Fanatical 的折扣（经 CheapShark 聚合，报价为美元），筛选栏新增 Epic / 其他两个分类，摘要里分开计数，DLC、升级包和原声带会按标题过滤掉；<br>
+        2. <b>促销卡标记已有游戏</b>：Steam 促销会标出「已在库」「愿望单」，新增「隐藏我已有的」勾选；愿望单没设为公开时会提示「愿望单未公开，未标记」；<br>
+        3. <b>促销卡目标价提醒</b>：Steam 条目可以直接填目标价，填了就按这个价格提醒，留空仍按「再降 10%」；配了 ITAD Key 还会标出史低价格与「史低」角标；<br>
+        4. <b>挂机列表「正在玩」置顶</b>：读取 Steam 客户端正在运行的游戏（注册表 RunningAppID），对应卡片排到最前并显示「正在玩」；挂机时不用再翻列表找它；<br>
+        5. <b>修复挂单下架 400</b>：下架请求以前是从社区首页上下文发出的，Steam 要求 Referer 来自市场页，因此一律回 400；现在下架前先把会话通道切到市场页，失败还会自动重开重试一次，仍失败会说明是会话掉线并提示重新登录；<br>
+        <b>v2.6.54 更新特性：</b><br>
+        1. <b>每日促销页</b>：左侧导航新增「每日促销」，汇总 Steam 今日特惠与 GOG 折扣榜，卡片显示平台、折扣、现价/原价与截止日期；可按平台筛选、点「去商店」直达，Steam 条目可一键加价格提醒（设在再降 10% 的位置）；<br>
+        2. <b>促销数据与区服</b>：跟随「设置 → 查价与挂机 → 商店价格区服」，20 分钟缓存，可手动刷新；两个来源独立容错，一个失败不影响另一个；<br>
+        <b>v2.6.53 更新特性：</b><br>
+        1. <b>挂机收益估算</b>：每张挂机卡显示「≈ ¥X/天」——按内置掉落频率（如 Banana 每 3 小时 1 件）乘当前最低价估算，可按日收益排序；点「查 24h 成交」按需拉该物品的成交量，判断好不好出手；<br>
+        2. <b>7 天价格走势</b>：每天自动记一次最低价（后台每 6 小时补记，只留 30 天），卡片上用一条小曲线显示涨跌幅；刚装好时只有当天数据，积累两天后才会画线；<br>
+        3. <b>愿望单批量查价</b>：查价卡新增「导入愿望单」，读取公开愿望单的前 40 个游戏批量查现价与折扣，可逐个加「折扣≥20%」提醒，也可一键全部加；<br>
+        4. <b>排序筛选与掉落排除</b>：挂机卡片可按默认/日收益/最低在售/市场条目数排序，可只看有在售的游戏；掉落提醒支持排除关键词（箱子、涂鸦、喷漆等），命中的物品不查价、不推送；<br>
+        5. <b>修复「冷却中」误判</b>：以前把「不能玩家间交易」当成了「不能上架市场」，物品明明能在 Steam 官网直接卖，软件里却锁着「立即上架」；现在单件上架、批量上架、补货与试运行都只看市场可售，交易冷却会单独提示「仍可上架市场」；<br>
+        6. <b>修复提醒被写回</b>：删除价格提醒时，如果后台正好在检查，旧提醒可能被重新写回去；现在以检查结束时的列表为准；<br>
+        <b>v2.6.52 更新特性：</b><br>
+        1. <b>查价与挂机整栏重做</b>：挂机游戏卡片换成 Steam 社区市场实时行情——最低在售价、低价物品、市场条目数和 24 小时成交量，10 分钟缓存；内置清单只展示你真正拥有的游戏；<br>
+        2. <b>监控与跳转</b>：可以输入 AppID/游戏名加入监控，卡片上直接「市场」「商店」跳转；「加入监控」的游戏会同时进入掉落提醒范围；<br>
+        3. <b>查价联动库存</b>：查游戏价格时顺带显示你库存里该游戏有几件、当前挂单几件、有成本的件数和总成本，并可一键跳到库存页看可卖物品；<br>
+        4. <b>商店价格提醒</b>：给游戏设目标价或折扣百分比，达到条件就走通知渠道（含 QQ 机器人），同一条件只提醒一次、继续降价 12 小时后再提醒；<br>
+        5. <b>可选史低</b>：填 IsThereAnyDeal 的免费 API Key 后，查价会显示历史最低价与出现时间；不填就完全不请求；商店区服支持国区/港区/台区/美区/日区；<br>
+        6. <b>挂机掉落提醒</b>：监控你拥有的挂机游戏库存，新掉落物品查现价，超过门槛（默认 ¥5）推一条带物品名和价格的提醒；第一次只建基线；<br>
+        7. <b>QQ 机器人通知</b>：设置 → 通知外发选「QQ 机器人」，填 q.qq.com 的 AppID / AppSecret，点「列出频道」选一个文字子频道即可；<br>
+        8. <b>卖出通知</b>：定时读成交历史，新卖出发通知（物品名 + 到手金额，多件合并合计）；第一次开启只记录旧记录；<br>
+        9. <b>设置页开关全部重做</b>：维护模式、自动化时段、阶梯降价、自动守价、登录态预警、交易报价、AI、网页采集等开关，改成「左侧说明、右侧拨动开关」的整行卡片；<br>
+        10. <b>开关样式统一</b>：开启为蓝色、关闭为灰色，键盘 Tab 聚焦有清晰提示；物品详情里的「允许自动改价」也换成同款开关；<br>
+        11. <b>启动锁已移除</b>：不再需要主密码，打开软件直接进入；<br>
+        12. <b>登录态预警</b>：每小时用当前会话访问一次社区主页，发现跳到登录页就发通知；<br>
+        13. <b>交易报价提醒</b>：填入自己申请的 Steam Web API Key 后，定时检查待处理报价数量，变多时通知；不会自动接受报价；<br>
+        14. <b>AI 周报与问答</b>：可选接入任意兼容 OpenAI 的接口，用本地汇总数据生成经营周报或直接提问；不开启就不联网；<br>
+        15. <b>多窗口 / 分屏</b>：标题栏「在新窗口打开当前页」，或 Ctrl+Shift+N；<br>
+        16. <b>浏览器扩展</b>：在 Steam 市场物品页点「记到 SteamDesk」把当前价发到本机，物品详情直接显示采集价；<br>
+        17. <b>此前能力全部保留</b>：风控黑白名单、自动化时段、物品级自动改价策略、成交速度、批量试运行、撤销上次批量、大额二次确认、自动守价、自动记成本、备份恢复、通知中心、免打扰、每日目标与尾数定价、账龄四档、多币种报表、任务面板、快捷键、命令面板、首次向导、BUFF 比价、窗口记忆、归档、报表、补货、阶梯降价、维护模式、风控、定价、成本、批量操作、价格提醒、诊断包。</div>
+      <div style="font-size:11.5px;color:var(--dim)">填入更新源地址后，启动时会自动检查新版并提示下载；不填则完全不联网检查。软件不会静默替换程序。</div>
+    </div>
+    <div class="update-foot">
+      <button class="btn s" id="btnOpenLogs" title="打开按天写入的运行日志目录">打开日志</button>
+      <button class="btn s" id="btnDiagExport" title="把版本信息、脱敏设置和最近日志打包成一个文本文件，方便反馈问题">导出诊断包</button>
+      <button class="btn s" id="btnCheckAgain">重新检查</button>
+      <button class="btn p" id="btnUpdateConfirm">知道了</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导入手机令牌：可选文件，也可以直接粘贴 maFile 的 JSON 内容 -->
+<div class="update-modal" id="guardModal">
+  <div class="update-box ask-box" style="width:540px">
+    <div class="ask-head">
+      <div class="ask-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.4 12.6 19 4"/><path d="M15.6 7.4 18 9.8"/><path d="M13.2 9.8 15 11.6"/></svg></div>
+      <div style="min-width:0">
+        <div class="ask-title">导入手机令牌（maFile）</div>
+        <div class="ask-sub">导入后挂单可在软件内确认，不用再掏手机</div>
+      </div>
+    </div>
+    <div class="ask-body">
+      <ul class="ask-notes">
+        <li>需要含 <b>identity_secret</b> 的 maFile：Steam Desktop Authenticator（SDA）里对该账号右键 →「导出」→ 选 .maFile。</li>
+        <li>SDA 装好后令牌默认存在 <code>%APPDATA%\Steam Desktop Authenticator\maFiles</code>，选文件时会自动定位到那里。</li>
+        <li>找不到文件就把 maFile 的 JSON 内容整段粘到下面，效果一样。</li>
+        <li>密钥只存进本机加密区，界面和日志都不会显示原文。</li>
+      </ul>
+      <div class="guard-ops">
+        <button class="btn s" id="guardPick">选择 .maFile 文件</button>
+        <button class="btn s" id="guardPaste">从剪贴板粘贴</button>
+      </div>
+      <textarea id="guardText" class="guard-ta" spellcheck="false" placeholder='{"shared_secret":"…","identity_secret":"…","Session":{"SteamID":"7656119…"}}'></textarea>
+      <div id="guardMsg" class="guard-msg"></div>
+    </div>
+    <div class="update-foot ask-foot">
+      <button class="btn s" id="guardCancel">取消</button>
+      <button class="btn p" id="guardOk">导入并校验</button>
+    </div>
+  </div>
+</div>
+
+<!-- Steam 成交历史：读取当前网页登录账号的完整买卖记录（不限于本软件成交） -->
+<div class="update-modal" id="healthModal">
+  <div class="update-box" style="width:760px">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>账号体检</span>
+        <span class="pill" id="healthPill" style="font-size:10.5px"></span>
+      </div>
+      <button class="ib" id="healthClose" title="关闭">✕</button>
+    </div>
+    <div class="health-body" id="healthBody"></div>
+    <div class="update-foot">
+      <span class="dim2" style="flex:1;font-size:11.5px">没有网页会话的号只能读公开库存；要代这个号上架、确认，先点「登录」走一次网页登录。</span>
+      <label class="cost-chk" title="每 3 小时检查一次，会话失效会用系统通知提醒"><input type="checkbox" id="healthWatch" /> 自动巡检</label>
+      <button class="btn s" id="healthBatchLogin" style="display:none" title="按顺序给所有会话无效的账号打开网页登录，一个完成后再开下一个">登录所有缺失账号</button>
+      <button class="btn s" id="healthRun">重新检查</button>
+      <button class="btn p" id="healthClose2">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="update-modal" id="watchModal">
+  <div class="update-box" style="width:760px">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>库存变动</span>
+        <span class="pill" id="watchPill" style="font-size:10.5px"></span>
+      </div>
+      <button class="ib" id="watchClose" title="关闭">✕</button>
+    </div>
+    <div class="mh-bar">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer">
+        <input type="checkbox" id="watchEnabled" /> 启用监控
+      </label>
+      <span class="dim2" id="watchMeta" style="font-size:11.5px"></span>
+    </div>
+    <div class="watch-list" id="watchList"></div>
+    <div class="update-foot">
+      <span class="dim2" style="flex:1;font-size:11.5px">只监控有网页会话的账号；每 6 小时对比一次「Steam 社区物品 + 自定义 AppID」，减号表示卖出或被交易走。</span>
+      <button class="btn s" id="watchRun">立即检查</button>
+      <button class="btn p" id="watchClose2">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 自动补货：卖出后按最低价重新挂上库存里的同款 -->
+<div class="update-modal" id="restockModal">
+  <div class="update-box" style="width:700px">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>自动补货</span>
+        <span class="pill" id="restockPill" style="font-size:10.5px"></span>
+      </div>
+      <button class="ib" id="restockClose" title="关闭">✕</button>
+    </div>
+    <div class="mh-bar">
+      <label class="cost-chk"><input type="checkbox" id="restockEnabled" /> 启用自动补货</label>
+      <span class="dim2" id="restockMeta" style="font-size:11.5px;margin-left:auto"></span>
+    </div>
+    <div class="cost-box" style="margin:10px 14px">
+      <div class="cost-s">只对当前网页登录的账号生效：发现新的成交后，如果库存里还有同款（可上架、不在冷却、没挂着），自动按当前最低价 -0.01 重新挂上。手动下架的物品不会被补回去。</div>
+      <div class="cost-r">
+        <label class="cost-chk">每日上限 <input id="restockCap" type="number" min="0" max="200" style="width:62px" /> 件</label>
+        <label class="cost-chk">每轮最多 <input id="restockPer" type="number" min="1" max="20" style="width:54px" /> 件</label>
+        <span style="flex:1"></span>
+        <button class="btn s" id="restockRun">立即检查</button>
+      </div>
+    </div>
+    <div class="watch-list" id="restockList"></div>
+    <div class="update-foot">
+      <span class="dim2" style="flex:1;font-size:11.5px">补货同样受风控与手机令牌确认约束；没有行情或同款都在冷却时会跳过。</span>
+      <button class="btn p" id="restockClose2">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 智能定价建议：当前最低价 + 近 7/30 天成交分位 -->
+<div class="update-modal" id="priceModal">
+  <div class="update-box" style="width:840px">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>智能定价建议</span>
+        <span class="pill" id="pricePill" style="font-size:10.5px"></span>
+      </div>
+      <button class="ib" id="priceClose" title="关闭">✕</button>
+    </div>
+    <div class="cost-box" style="margin:10px 14px 8px">
+      <div class="cost-s">快速价 = 当前最低价 -0.01 与近 7/30 天成交 p25 的较低值；保守价 = 近 30 天成交中位数。点某一行的价格会把它设为该件的改价目标，底部按钮可整批套用。</div>
+    </div>
+    <div class="price-list" id="priceList"></div>
+    <div class="update-foot">
+      <span class="dim2" style="flex:1;font-size:11.5px">改价 = 先下架再上架，会触发手机令牌确认；执行前还有一次二次确认。</span>
+      <button class="btn s" id="priceFastAll">全选快速价</button>
+      <button class="btn s" id="priceSafeAll">全选保守价</button>
+      <button class="btn s" id="priceApply" title="按每行当前选中的价格批量改价">按所选价格改价</button>
+      <button class="btn p" id="priceClose2">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 每日 / 每周经营报表 -->
+<!-- 通知中心 -->
+<div class="update-modal" id="noticeModal">
+  <div class="update-box notice-box">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>通知中心</span><span class="pill" id="noticeUnread">0 条未读</span>
+      </div>
+      <button class="ib" id="noticeClose" title="关闭">✕</button>
+    </div>
+    <div class="update-body" style="padding:12px 16px">
+      <div class="rowx" style="gap:8px;margin-bottom:8px">
+        <button class="btn s" id="noticeReadAll">全部标为已读</button>
+        <button class="btn s" id="noticeClear">清空</button>
+      </div>
+      <div id="noticeList" class="notice-list"><div class="watch-empty">还没有消息</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="update-modal" id="reportModal">
+  <div class="update-box" style="width:880px">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>经营报表</span>
+        <span class="pill" id="reportPill" style="font-size:10.5px"></span>
+      </div>
+      <button class="ib" id="reportClose" title="关闭">✕</button>
+    </div>
+    <div class="mh-bar">
+      <div class="tabs" id="reportRange">
+        <button class="tab on" data-days="14">近 14 天</button>
+        <button class="tab" data-days="30">近 30 天</button>
+      </div>
+      <div class="tabs" id="reportView">
+        <button class="tab on" data-view="day">按天</button>
+        <button class="tab" data-view="app">按游戏</button>
+      </div>
+      <span class="mh-acc" id="reportAcc"></span>
+    </div>
+    <div class="report-sum" id="reportSum"></div>
+    <div class="report-list" id="reportList"></div>
+    <div class="update-foot">
+      <span class="dim2" style="flex:1;font-size:11.5px">数据来自当前网页登录账号的成交历史；已实现盈亏只统计有成本记录的卖出。</span>
+      <button class="btn s" id="reportAiWeekly">AI 周报</button>
+      <button class="btn s" id="reportAiAsk">问 AI</button>
+      <button class="btn s" id="reportExport">导出 CSV</button>
+      <button class="btn s" id="reportReload">刷新</button>
+      <button class="btn p" id="reportClose2">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI 助手：周报与自然语言提问 -->
+<div class="update-modal" id="aiModal">
+  <div class="update-box" style="width:720px">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px">AI 助手</div>
+      <button class="ib" id="aiClose" title="关闭">✕</button>
+    </div>
+    <div class="update-body">
+      <div class="fld-hint" style="margin-bottom:8px">只发送本地汇总后的经营数据，不发送账号名、Cookie 或库存明细。需要先在设置里开启并填写接口。</div>
+      <div class="rowx" style="gap:8px">
+        <input id="aiQuestion" placeholder="问一句，例如：这周哪类物品最赚钱？" style="flex:1" />
+        <button class="btn s" id="aiAsk">提问</button>
+        <button class="btn s" id="aiWeekly">生成周报</button>
+      </div>
+      <div class="ai-out" id="aiOut">配置好 AI 接口后，这里显示回答。</div>
+    </div>
+    <div class="update-foot">
+      <button class="btn p" id="aiDone">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 成本管理：从买入记录回填、CSV 导入导出 -->
+<div class="update-modal" id="costModal">
+  <div class="update-box" style="width:660px">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>成本管理</span>
+        <span class="pill" id="costPill" style="font-size:10.5px"></span>
+      </div>
+      <button class="ib" id="costClose" title="关闭">✕</button>
+    </div>
+    <div class="health-body" style="padding:12px 16px 4px">
+      <div class="dim2" id="costMeta" style="font-size:12px;margin-bottom:10px">—</div>
+
+      <div class="cost-box">
+        <div class="cost-t">按买入记录自动回填</div>
+        <div class="cost-s">读取当前网页登录账号的 Steam 市场买入记录（近期才买的东西更准），按物品算平均买入价，默认只补还没有成本的物品。</div>
+        <div class="cost-r">
+          <label class="cost-chk"><input type="checkbox" id="costOverwrite" /> 覆盖已有成本</label>
+          <span style="flex:1"></span>
+          <button class="btn s" id="costFill">从买入记录回填</button>
+        </div>
+      </div>
+
+      <div class="cost-box">
+        <div class="cost-t">批量导入 / 导出</div>
+        <div class="cost-s">CSV 两列：<code>market_hash_name,cost</code>，成本填每件人民币元。导出后可在 Excel 改完再导回来。</div>
+        <div class="cost-r">
+          <button class="btn s" id="costImport">导入 CSV</button>
+          <button class="btn s" id="costExport">导出 CSV</button>
+          <span style="flex:1"></span>
+          <button class="btn s" id="costClear" style="color:var(--red)">清空本号成本</button>
+        </div>
+      </div>
+
+      <div class="cost-log" id="costLog"></div>
+    </div>
+    <div class="update-foot">
+      <span class="dim2" style="flex:1;font-size:11.5px">成本按账号分开记：同一个物品在不同号上可能是不同价格买的，混着算没有意义。</span>
+      <button class="btn p" id="costClose2">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="update-modal" id="mhModal">
+  <div class="update-box mh-box">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px">
+        <span>Steam 成交历史</span>
+        <span class="pill" id="mhTotal" style="font-size:10.5px"></span>
+      </div>
+      <button class="ib" id="mhClose" title="关闭">✕</button>
+    </div>
+    <div class="mh-bar">
+      <div class="tabs" id="mhKind">
+        <button class="tab on" data-kind="sell">我卖出的</button>
+        <button class="tab" data-kind="buy">我买入的</button>
+        <button class="tab" data-kind="all">全部</button>
+      </div>
+      <span class="mh-acc" id="mhAcc"></span>
+    </div>
+    <div class="mh-stats" id="mhStatsBox" style="display:none"></div>
+    <div class="mh-list" id="mhList"></div>
+    <div class="update-foot">
+      <button class="btn s" id="mhStats" title="按月份汇总成交笔数、到手金额与净现金流">收益统计</button>
+      <button class="btn s" id="mhExport" title="把当前账号的成交记录导出为 CSV">导出 CSV</button>
+      <button class="btn s" id="mhRefresh">刷新</button>
+      <button class="btn s" id="mhPrev">上一页</button>
+      <span class="mh-page" id="mhPage">1 / 1</span>
+      <button class="btn s" id="mhNext">下一页</button>
+      <button class="btn p" id="mhClose2">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通用确认弹窗：上架 / 下架 / 批量撤单都走这里，替代系统 MessageBox -->
+<div class="update-modal" id="askModal">
+  <div class="update-box ask-box">
+    <div class="ask-head">
+      <div class="ask-ico" id="askIco">?</div>
+      <div style="min-width:0">
+        <div class="ask-title" id="askTitle">确认操作</div>
+        <div class="ask-sub" id="askSub"></div>
+      </div>
+    </div>
+    <div class="ask-body">
+      <div class="ask-grid" id="askGrid"></div>
+      <div class="ask-typed" id="askTypedWrap" style="display:none">
+        <div class="fld-hint" id="askTypedLabel"></div>
+        <input id="askTyped" autocomplete="off" spellcheck="false" placeholder="在这里输入" />
+      </div>
+      <ul class="ask-notes" id="askNotes"></ul>
+    </div>
+    <div class="update-foot ask-foot">
+      <button class="btn s" id="askCancel">取消</button>
+      <button class="btn p" id="askOk">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 命令面板：Ctrl+K 搜索页面 / 功能 / 账号 / 库存物品 -->
+<div class="cmdk-mask" id="cmdkMask">
+  <div class="cmdk" role="dialog" aria-label="命令面板">
+    <div class="cmdk-inp">
+      <svg class="cmdk-ico" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.6"/><path d="M10.4 10.4L14 14"/></svg>
+      <input id="cmdkInput" placeholder="搜索页面、功能、账号、库存物品…" autocomplete="off" spellcheck="false" />
+      <span class="cmdk-kbd">Esc</span>
+    </div>
+    <div class="cmdk-list" id="cmdkList"></div>
+    <div class="cmdk-foot">
+      <span><b>↑↓</b> 选择</span><span><b>Enter</b> 执行</span><span><b>Esc</b> 关闭</span>
+      <span class="sp"></span><span id="cmdkCount">0 项</span>
+    </div>
+  </div>
+</div>
+
+<!-- 首次使用向导 -->
+<div class="update-modal" id="wizardModal">
+  <div class="update-box wizard-box">
+    <div class="update-head">
+      <div style="font-weight:600;font-size:15px" id="wizTitle">欢迎使用 SteamDesk</div>
+      <button class="ib" id="wizClose" title="关闭">✕</button>
+    </div>
+    <div class="update-body">
+      <div class="wiz-steps" id="wizDots">
+        <span class="wiz-dot on"></span><span class="wiz-dot"></span><span class="wiz-dot"></span><span class="wiz-dot"></span>
+      </div>
+      <div id="wizBody"></div>
+    </div>
+    <div class="update-foot">
+      <button class="btn s" id="wizSkip">跳过向导</button>
+      <span class="sp"></span>
+      <button class="btn s" id="wizPrev">上一步</button>
+      <button class="btn p" id="wizNext">下一步</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "SteamDesk 价格采集",
+  "version": "1.0.0",
+  "description": "在 Steam 市场物品页把当前价记到本机 SteamDesk（只连 127.0.0.1）。",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:37421/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://steamcommunity.com/market/listings/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SteamDesk 价格采集"
+  }
+}

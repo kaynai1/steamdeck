@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>SteamDesk 预览（mock 数据）</title>
+<link rel="stylesheet" href="/SteamDesk-src-2.6.1/renderer/style.css" />
+</head>
+<body>
+<div style="position:fixed;left:0;right:0;bottom:0;z-index:999;height:22px;display:flex;align-items:center;justify-content:center;gap:8px;background:#7A3E00;color:#FFD9A8;font-size:11px;font-family:system-ui">预览模式 · 数据全部为 mock，仅用于检查界面布局</div>
+<div class="sd" style="height:calc(100vh - 22px)">
+  <!-- 标题栏 -->
+  <div class="tb">
+    <div class="mk">
+      <svg class="brand-logo" viewBox="0 0 28 28" fill="none">
+        <defs>
+          <linearGradient id="sdLogoGrad" x1="2" y1="2" x2="26" y2="26" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#00A2FF"/>
+            <stop offset="0.5" stop-color="#0078D4"/>
+            <stop offset="1" stop-color="#004E98"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="24" height="24" rx="7" fill="url(#sdLogoGrad)"/>
+        <!-- 现代 Steam 极简几何连杆图标 -->
+        <circle cx="16.5" cy="11.5" r="4.2" stroke="#FFFFFF" stroke-width="2.1" fill="none"/>
+        <circle cx="9.5" cy="17.5" r="2.6" fill="#FFFFFF"/>
+        <line x1="10.8" y1="16.2" x2="13.8" y2="13.2" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="bn">SteamDesk<em id="ver">—</em></div>
+    <div class="sp"></div>
+    <div class="cur" id="curBox" title="当前账号">
+      <div class="av" id="curAv">—</div>
+      <div class="n" id="curName">未选择</div>
+      <span class="dot o" id="curDot"></span>
+    </div>
+    <button class="ib" id="btnRefresh" title="刷新">
+      <svg class="ico" viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 11-1.6-3.9"/><path d="M13.5 2.5V5h-2.5"/></svg>
+    </button>
+    <button class="ib" id="btnTheme" title="切换界面外观（自动自适应 / 浅色白底 / 经典深色）">
+      <svg class="ico" id="icoTheme" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="3.2"/>
+        <path d="M8 1.5v1.8M8 12.7V14.5M1.5 8h1.8M12.7 8H14.5M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3"/>
+      </svg>
+    </button>
+    <button class="ib" id="btnMobileConf" title="手机令牌与市场待处理确认（可在电脑上直接点确认）">
+      <svg class="ico" viewBox="0 0 16 16"><rect x="4" y="1.5" width="8" height="13" rx="2"/><path d="M7 11.5h2"/></svg>
+    </button>
+    <button class="ib" id="btnSettings" title="设置">
+      <svg class="ico" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.1"/><path d="M8 2v1.8M8 12.2V14M2 8h1.8M12.2 8H14M3.7 3.7l1.3 1.3M11 11l1.3 1.3M12.3 3.7L11 5M5 11l-1.3 1.3"/></svg>
+    </button>
+    <div class="wc">
+      <button id="winMin" title="最小化"><svg viewBox="0 0 12 12"><path d="M2 6h8"/></svg></button>
+      <button id="winMax" title="最大化"><svg viewBox="0 0 12 12"><rect x="2.2" y="2.2" width="7.6" height="7.6"/></svg></button>
+      <button class="cl" id="winClose" title="关闭"><svg viewBox="0 0 12 12"><path d="M2.4 2.4l7.2 7.2M9.6 2.4l-7.2 7.2"/></svg></button>
+    </div>
+  </div>
+
+  <div class="shell">
+    <!-- 左导航 -->
+    <aside class="rail">
+      <div class="rs">交易</div>
+      <button class="nav on" data-page="overview">
+        <svg class="ico" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><rect x="9" y="9" width="5" height="5" rx="1.2"/></svg>
+        <span class="lbl">概览</span>
+      </button>
+      <button class="nav" data-page="inventory">
+        <svg class="ico" viewBox="0 0 16 16"><path d="M3 4h10l-1 9H4L3 4z"/><path d="M6 4a2 2 0 014 0"/></svg>
+        <span class="lbl">饰品仓库</span>
+      </button>
+      <button class="nav" data-page="orders">
+        <svg class="ico" viewBox="0 0 16 16"><path d="M2.5 5.5l6-3 5 3-5 3-6-3z"/><path d="M2.5 8.5l6 3 5-3"/></svg>
+        <span class="lbl">市场挂单</span><span class="bd" id="navOrders">0</span>
+      </button>
+      <div class="rs">资讯与工具</div>
+      <button class="nav" data-page="storeNews">
+        <svg class="ico" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2.5 1.5"/><path d="M12 2l2 2"/></svg>
+        <span class="lbl">查价与挂机</span><span class="bd" style="background:rgba(63,190,107,.16);color:var(--green)">HOT</span>
+      </button>
+      <div class="rs">账号</div>
+      <button class="nav" data-page="accounts">
+        <svg class="ico" viewBox="0 0 16 16"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-3.9 5-3.9s5 1.4 5 3.9"/></svg>
+        <span class="lbl">账号管理</span>
+      </button>
+      <button class="nav" data-page="library">
+        <svg class="ico" viewBox="0 0 16 16"><rect x="1.5" y="5" width="13" height="6.5" rx="3"/><path d="M4.5 8.2h1.5M5.2 7.5v1.4"/><circle cx="10.8" cy="7.9" r=".8"/><circle cx="12.1" cy="9.3" r=".8"/></svg>
+        <span class="lbl">游戏库</span>
+      </button>
+      <div class="rf" id="rf">Steam 路径<br><b>探测中…</b></div>
+    </aside>
+
+    <div class="ct">
+      <!-- 概览 -->
+      <section class="pg on" data-p="overview">
+        <div class="ph">
+          <div><h2>交易概览</h2><div class="mt" id="ovSub">—</div></div>
+          <div class="r">
+            <button class="btn s" id="ovExport">导出报表</button>
+            <button class="btn p" id="ovScan">扫描账号</button>
+          </div>
+        </div>
+        <div class="two">
+          <div class="col">
+            <div class="kpis">
+              <div class="kpi"><div class="l">库存估值</div><div class="v" id="kValue">¥0.00</div><div class="f"><span class="dim2" id="kValueSub">未拉取库存</span></div></div>
+              <div class="kpi"><div class="l">库存件数</div><div class="v" id="kCount">0</div><div class="f"><span class="dim2" id="kCountSub">—</span></div></div>
+              <div class="kpi"><div class="l">在线账号</div><div class="v" id="kOnline">0<small> / 0</small></div><div class="f"><span class="dot"></span>已绑定</div></div>
+              <div class="kpi"><div class="l">市场挂单</div><div class="v" id="kListings">0</div><div class="f"><span class="dim2" id="kListSub">未同步</span></div></div>
+            </div>
+
+            <div class="card">
+              <div class="ch"><div><div class="t">库存估值趋势</div><div class="s">全部绑定账号 · 人民币</div></div>
+                <div class="r"><div class="seg"><button class="tab on" data-tr="h">24H</button><button class="tab" data-tr="d">7D</button><button class="tab" data-tr="m">30D</button></div></div></div>
+              <div style="display:flex;align-items:baseline;gap:7px;padding:7px 11px 0">
+                <div id="trBig" style="font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.4px">¥0.00</div>
+                <span class="pill n" id="trPill">暂无快照</span>
+              </div>
+              <div style="padding:2px 6px 0;position:relative">
+                <svg viewBox="0 0 600 132" preserveAspectRatio="none" style="width:100%;height:104px;display:block">
+                  <defs><linearGradient id="tgrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#4EA8F0" stop-opacity=".26"/>
+                    <stop offset="1" stop-color="#4EA8F0" stop-opacity="0"/>
+                  </linearGradient></defs>
+                  <line x1="0" y1="34" x2="600" y2="34" stroke="rgba(255,255,255,.055)"/>
+                  <line x1="0" y1="72" x2="600" y2="72" stroke="rgba(255,255,255,.055)"/>
+                  <line x1="0" y1="110" x2="600" y2="110" stroke="rgba(255,255,255,.055)"/>
+                  <path id="trArea" d="M8 130 L592 130 L592 130 L8 130 Z" fill="url(#tgrad)"/>
+                  <path id="trLine" d="M8 130 L592 130" fill="none" stroke="#4EA8F0" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                  <circle id="trDot" cx="592" cy="130" r="3" fill="#4EA8F0" style="display:none"/>
+                </svg>
+                <div class="trhint" id="trHint">拉取一次库存后开始记录估值快照</div>
+              </div>
+              <div class="xax" id="trXax"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>现在</span></div>
+            </div>
+
+            <div class="card">
+              <div class="ch"><div class="t">最近成交</div><div class="r"><span class="tag">全部账号</span><span class="tag">今日</span></div></div>
+              <div id="recentList" style="padding:4px 0 2px"></div>
+            </div>
+          </div>
+
+          <div class="col">
+            <div class="card">
+              <div class="ch"><div class="t">账号快切</div><div class="r"><span class="s" id="switchState">空闲</span></div></div>
+              <div id="quickAcc" style="padding:4px 0 5px"></div>
+              <div class="cf"><span id="switchHint">切换会关闭 Steam 客户端后重写配置</span></div>
+            </div>
+            <div class="card">
+              <div class="ch"><div class="t">功能开关</div></div>
+              <div style="padding:4px 0 7px" id="toggles">
+                <div class="gm"><div style="min-width:0"><div class="nm">切换前关闭 Steam</div><div class="sub">避免配置被占用写不进去</div></div><button class="tg on" data-set="closeSteamBeforeSwitch"><i></i></button></div>
+                <div class="gm"><div style="min-width:0"><div class="nm">上架逐件确认</div><div class="sub">每件上架前弹确认，防手滑</div></div><button class="tg on" data-set="confirmEach"><i></i></button></div>
+                <div class="gm"><div style="min-width:0"><div class="nm">加密 SSFN 凭证</div><div class="sub">用系统密钥环保存，拒绝明文</div></div><button class="tg on" data-set="encryptSsfn"><i></i></button></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="ch"><div class="t">最近操作</div><div class="r"><span class="pill n" id="logCount">0 条</span></div></div>
+              <div id="logList" style="padding:4px 0 6px;max-height:186px;overflow:auto"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 饰品仓库 -->
+      <section class="pg" data-p="inventory">
+        <div class="ph">
+          <div><h2>饰品仓库</h2><div class="mt" id="invSub">选择账号与游戏后拉取</div></div>
+          <div class="r">
+            <button class="btn p" id="invQuickCards" title="自动切到 Steam 社区（753），自动筛选卡牌与背景表情并按底价一键勾选填价">🃏 卡牌/掉落物一键清仓</button>
+            <button class="btn s" id="invQuote">查询行情</button>
+            <button class="btn s" id="invReload">重新拉取</button>
+          </div>
+        </div>
+
+        <div class="tool">
+          <span class="lb">账号</span>
+          <select id="invAcc"></select>
+          <span class="lb">游戏</span>
+          <select id="invApp" style="min-width:190px;max-width:230px"></select>
+          <span class="inp" style="width:120px" title="任何 AppID 都能填，注册表没有的会自动识别并保存">
+            <input id="invAppCustom" placeholder="自定义AppID" />
+          </span>
+          <button class="btn s" id="invAppAdd" title="识别这个 AppID 的游戏名，并探测它有没有开通市场">添加</button>
+          <button class="btn s" id="invProbe" title="逐个询问 Steam：这个账号在哪些游戏里真的有物品">探测库存</button>
+          <span class="lb">策略</span>
+          <select id="invStrat">
+            <option value="low-1" selected>最低价 −¥0.01（快速成交）</option>
+            <option value="low-0">匹配最低价（当前官方底价）</option>
+            <option value="low-97">最低价 × 97%（急速甩卖）</option>
+            <option value="low-95">最低价 × 95%（大清仓甩卖）</option>
+            <option value="med-0">当前中位价（保本出）</option>
+            <option value="med-102">中位价 +2%（行情看涨）</option>
+            <option value="med-105">中位价 +5%（高挂博弈）</option>
+            <option value="manual">手动填价</option>
+          </select>
+          <span class="sp"></span>
+          <button class="btn s" id="invApply">应用策略到全部</button>
+        </div>
+
+        <!-- 过滤条：库存动辄上千件，没有搜索/筛选等于不可用 -->
+        <div class="tool filters">
+          <span class="inp srch">
+            <svg class="ico" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.2"/><path d="M10.3 10.3L14 14"/></svg>
+            <input id="invSearch" placeholder="搜索物品名或类型" />
+          </span>
+          <div class="seg" id="invFilter">
+            <button class="tab on" data-f="all">全部</button>
+            <button class="tab" data-f="sellable">可上架</button>
+            <button class="tab" data-f="blocked">不可上架</button>
+            <button class="tab" data-f="priced">已定价</button>
+            <button class="tab" data-f="unpriced">未定价</button>
+          </div>
+          <span class="lb">排序</span>
+          <select id="invSort">
+            <option value="qty">数量 ↓</option>
+            <option value="value">市值 ↓</option>
+            <option value="price">单价 ↓</option>
+            <option value="name">名称</option>
+          </select>
+          <span class="sp"></span>
+          <span class="tag" id="invCount">—</span>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div class="tr hd" style="grid-template-columns:34px minmax(0,1fr) 58px 118px 126px 108px 118px 104px">
+            <span><input type="checkbox" id="invAll" /></span>
+            <span>物品</span>
+            <span style="text-align:center">数量</span>
+            <span style="text-align:right">市场最低</span>
+            <span style="text-align:right">挂单价</span>
+            <span style="text-align:right">到手/件</span>
+            <span style="text-align:right">小计</span>
+            <span style="text-align:right">状态</span>
+          </div>
+          <div class="wrap"><div id="invBody" class="tbl"></div></div>
+          <div class="sum">
+            <div><div class="k">已选</div><div class="v" id="selCount">0 件</div></div>
+            <div><div class="k">挂单合计</div><div class="v" id="selGross">¥0.00</div></div>
+            <div><div class="k">Steam到手</div><div class="v" id="selNet">¥0.00</div></div>
+            <div><div class="k" title="按主流 0.73 挂刀比估算的折现参考">折现参考 (0.73)</div><div class="v" id="selCash" style="color:var(--dim)">¥0.00</div></div>
+            <div class="r"><span class="k" id="sellState"></span><button class="btn p" id="sellStart">批量上架</button></div>
+          </div>
+        </div>
+        <div class="prog" id="sellProg" style="display:none"><i></i></div>
+      </section>
+
+      <!-- 市场挂单 -->
+      <section class="pg" data-p="orders">
+        <div class="ph">
+          <div><h2>市场挂单</h2><div class="mt" id="ordSub">同步后可下架，改价需先下架再重新上架</div></div>
+          <div class="r">
+            <button class="btn s" id="ordCheckPrice" title="一键查询当前挂单的最新市场在售底价，检测是否已被他人压价">一键比价检测</button>
+            <button class="btn s" id="ordCancelUnderpriced" title="一键下架所有已被他人低价压单的物品，方便重新低价上架" disabled>撤单被压单物品</button>
+            <button class="btn p" id="ordSync">同步挂单</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="tr hd" style="grid-template-columns:minmax(0,1fr) 120px 110px 96px">
+            <span>物品 / assetid</span><span style="text-align:right">挂单价</span><span style="text-align:center">状态</span><span style="text-align:right">操作</span>
+          </div>
+          <div class="wrap"><div id="ordBody" class="tbl"></div></div>
+          <div class="cf"><span id="ordFoot">尚未同步</span></div>
+        </div>
+      </section>
+
+      <!-- 账号管理 -->
+      <section class="pg" data-p="accounts">
+        <div class="ph">
+          <div><h2>账号管理</h2><div class="mt" id="accSub">从本地 Steam 配置读取，不接触密码</div></div>
+          <div class="r"><button class="btn s" id="accDiag">连接自检</button><button class="btn s" id="accScan">重新扫描</button><button class="btn p" id="accLogin">网页登录取 Cookie</button></div>
+        </div>
+        <div class="acards" id="accBody"></div>
+      </section>
+
+      <!-- 游戏库 -->
+      <section class="pg" data-p="library">
+        <div class="ph">
+          <div><h2>游戏库</h2><div class="mt" id="libSub">扫描已安装的 Steam 游戏</div></div>
+          <div class="r"><button class="btn s" id="libFetchOwned" title="需在设置里填 Steam Web API Key">拉取在线游戏库</button><button class="btn p" id="libScan">扫描游戏库</button></div>
+        </div>
+        <div class="tool">
+          <div class="tabs" id="libFilter"></div>
+          <span class="inp srch">
+            <svg class="ico" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.2"/><path d="M10.3 10.3L14 14"/></svg>
+            <input id="libSearch" placeholder="搜索游戏名或 AppID" />
+          </span>
+          <span class="sp"></span>
+          <div class="seg" id="libShape">
+            <button class="tab on" data-shape="portrait">竖版封面</button>
+            <button class="tab" data-shape="wide">横版封面</button>
+          </div>
+        </div>
+        <div class="ggrid" id="libBody"></div>
+      </section>
+
+      <!-- 游戏查价与挂机资讯 -->
+      <section class="pg" data-p="storeNews">
+        <div class="ph">
+          <div><h2>游戏查价与挂机掉落资讯</h2><div class="mt">实时查询 Steam 商店游戏价格与史低折扣 · 监控热门挂机掉落新作上线动向</div></div>
+          <div class="r">
+            <button class="btn p" id="newsRefresh">刷新通告</button>
+          </div>
+        </div>
+
+        <!-- 游戏价格速查卡片 -->
+        <div class="card" style="padding:14px">
+          <div class="ch" style="padding:0 0 10px"><div class="t">🔍 Steam 商店实时价格与史低折扣查询</div></div>
+          <div class="tool" style="gap:10px">
+            <span class="inp srch" style="flex:1;max-width:480px">
+              <svg class="ico" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.2"/><path d="M10.3 10.3L14 14"/></svg>
+              <input id="storeSearchInput" placeholder="输入游戏名称 (如 黑神话悟空 / 艾尔登法环) 或 AppID (如 2358720)" />
+            </span>
+            <button class="btn p" id="storeSearchBtn">查询价格</button>
+            <span class="lb" style="margin-left:8px">快捷搜索：</span>
+            <button class="btn s" data-quick="2358720">黑神话</button>
+            <button class="btn s" data-quick="1245620">艾尔登法环</button>
+            <button class="btn s" data-quick="1091500">赛博朋克2077</button>
+            <button class="btn s" data-quick="730">CS2</button>
+            <button class="btn s" data-quick="2923300">Banana</button>
+          </div>
+          <div id="storeSearchResult" style="margin-top:12px;display:none"></div>
+        </div>
+
+        <!-- 挂机游戏动态卡片 -->
+        <div class="card" style="padding:14px">
+          <div class="ch" style="padding:0 0 10px">
+            <div class="t">🔥 最新热门与近期挂机掉落游戏通告</div>
+            <div class="r"><span class="pill g">掉落监控生效中</span></div>
+          </div>
+          <div id="idleGamesList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="sb">
+    <span id="sbLeft">就绪</span>
+    <div class="r"><span id="sbMid"></span><span id="sbRight"></span></div>
+  </div>
+</div>
+
+<!-- 设置抽屉遮罩 -->
+<div class="drawer-mask" id="drawerMask"></div>
+
+<!-- 设置抽屉 -->
+<div class="drawer" id="drawer">
+  <div class="dh"><span>设置</span><button class="ib" id="drawerClose" title="关闭 (Esc)">✕</button></div>
+  <div class="dbody">
+    <label class="fld"><span>外观主题（支持自适应白天/黑夜）</span>
+      <select id="setTheme">
+        <option value="auto">跟随系统（白天自动浅色，夜间自动深色）</option>
+        <option value="light">浅色模式（清爽白底 · 类 Magpie / Win11）</option>
+        <option value="dark">深色模式（经典暗黑）</option>
+      </select>
+    </label>
+    <label class="fld"><span>Steam 安装目录</span><div class="rowx"><input id="setSteamPath" placeholder="自动探测" /><button class="btn s" id="setChoosePath">选择</button></div></label>
+    <label class="fld"><span>界面缩放（看不清就调大，会记住）</span>
+      <div class="rowx">
+        <input id="setZoom" type="range" min="0.85" max="1.6" step="0.05" style="flex:1" />
+        <b id="setZoomVal" style="width:46px;text-align:right;font-size:12.5px">108%</b>
+      </div>
+    </label>
+    <label class="fld"><span>查价间隔（毫秒）</span><input id="setQuoteInt" type="number" min="1200" step="100" /></label>
+    <label class="fld"><span>上架间隔（毫秒）</span><input id="setSellInt" type="number" min="2000" step="500" /></label>
+    <label class="fld"><span>价格保护阈值（低于最低价多少比例就拦截）</span><input id="setGuard" type="number" min="0.1" max="1" step="0.05" /></label>
+    <div class="note">查价接口没有官方配额，实测约每分钟 20 次后开始限流。间隔调小会更容易撞 429。</div>
+    <button class="btn p" id="setSave" style="width:100%;justify-content:center;height:30px">保存设置</button>
+  </div>
+</div>
+
+
+<script>
+(function () {
+  const INV = {"steamId":"76561198000000001","appId":730,"appName":"Counter-Strike 2","contextId":"2","usedAttempt":1,"totalAssets":360,"sellableAssets":358,"tradableAssets":358,"items":[],"groups":[{"key":"730-Dreams & Nightmares Case","marketHashName":"730-Dreams & Nightmares Case","appId":730,"sourceAppId":730,"name":"Dreams & Nightmares Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_frnIV7Kb5OaU-JqfHDzXFle0u4LY8Gy_kkRgisGzcm4v4J3vDOAQmDMdyRvlK7EcmeCU3yw/128fx128f","commodity":1,"descriptions":["包含 17 款社区设计皮肤","出自 Dreams & Nightmares 更新"],"qty":1,"sellableQty":1,"marketableQty":1,"tradableQty":1,"marketable":true,"tradable":true,"tradeHoldText":"","assets":[{"assetId":"30000000000","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""}]},{"key":"730-Revolution Case","marketHashName":"730-Revolution Case","appId":730,"sourceAppId":730,"name":"Revolution Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_frnAVvfb6aqduc_TFVjTCxbx05OU4S3jilE9w4DzRnImtIy2Sa1JzDJEhRPlK7EcO4U8gfA/128fx128f","commodity":1,"descriptions":[],"qty":3,"sellableQty":3,"marketableQty":3,"tradableQty":3,"marketable":true,"tradable":true,"tradeHoldText":"","assets":[{"assetId":"30000001000","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000001001","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000001002","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""}]},{"key":"730-Kilowatt Case","marketHashName":"730-Kilowatt Case","appId":730,"sourceAppId":730,"name":"Kilowatt Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_frnEVvqf_a6VoIfGSXz7Hlbwg57QwSS_mxhl15jiGyN37c3_GZw91W8BwRflK7EfKsa2sfw/128fx128f","commodity":1,"descriptions":[],"qty":200,"sellableQty":200,"marketableQty":200,"tradableQty":200,"marketable":true,"tradable":true,"tradeHoldText":"","assets":[{"assetId":"30000002000","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002001","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002002","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002003","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002004","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002005","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002006","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002007","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002008","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002009","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002010","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002011","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002012","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002013","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002014","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002015","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002016","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002017","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002018","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002019","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002020","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002021","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002022","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002023","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002024","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002025","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002026","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002027","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002028","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002029","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002030","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002031","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002032","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002033","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002034","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002035","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002036","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002037","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002038","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002039","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002040","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002041","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002042","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002043","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002044","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002045","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002046","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002047","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002048","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002049","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002050","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002051","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002052","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002053","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002054","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002055","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002056","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002057","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002058","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002059","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002060","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002061","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002062","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002063","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002064","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002065","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002066","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002067","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002068","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002069","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002070","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002071","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002072","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002073","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002074","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002075","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002076","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002077","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002078","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002079","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002080","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002081","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002082","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002083","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002084","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002085","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002086","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002087","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002088","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002089","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002090","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002091","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002092","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002093","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002094","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002095","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002096","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002097","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002098","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002099","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002100","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002101","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002102","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002103","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002104","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002105","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002106","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002107","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002108","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002109","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002110","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002111","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002112","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002113","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002114","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002115","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002116","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002117","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002118","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002119","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002120","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002121","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002122","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002123","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002124","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002125","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002126","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002127","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002128","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002129","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002130","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002131","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002132","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002133","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002134","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002135","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002136","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002137","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002138","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002139","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002140","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002141","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002142","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002143","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002144","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002145","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002146","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002147","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002148","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002149","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002150","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002151","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002152","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002153","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002154","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002155","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002156","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002157","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002158","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002159","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002160","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002161","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002162","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002163","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002164","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002165","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002166","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002167","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002168","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002169","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002170","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002171","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002172","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002173","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002174","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002175","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002176","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002177","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002178","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002179","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002180","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002181","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002182","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002183","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002184","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002185","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002186","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002187","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002188","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002189","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002190","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002191","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002192","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002193","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002194","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002195","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002196","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002197","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002198","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000002199","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""}]},{"key":"730-Fever Case","marketHashName":"730-Fever Case","appId":730,"sourceAppId":730,"name":"Fever Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_frncVtqv7MPE8JaHHCj_Dl-wk4-NtFirikURy4jiGwo2udHqVaAEjDZp3EflK7EeSMnMs4w/128fx128f","commodity":1,"descriptions":[],"qty":1,"sellableQty":0,"marketableQty":0,"tradableQty":0,"marketable":false,"tradable":false,"tradeHoldText":"可交易于 2026年11月19日","assets":[{"assetId":"30000003000","contextId":"2","marketable":false,"tradable":false,"tradeHoldText":"可交易于 2026年11月19日"}]},{"key":"730-Sealed Dead Hand Terminal","marketHashName":"730-Sealed Dead Hand Terminal","appId":730,"sourceAppId":730,"name":"Sealed Dead Hand Terminal","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_frnVk7P6he6FpbqHGCmSTk-hz5rZsHS3mwxgjsGjRytb7dC2VPwYlAschRrFbsBC4xNH5d7S1gfLQnNE/128fx128f","commodity":1,"descriptions":[],"qty":12,"sellableQty":12,"marketableQty":12,"tradableQty":12,"marketable":true,"tradable":true,"tradeHoldText":"","assets":[{"assetId":"30000004000","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004001","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004002","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004003","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004004","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004005","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004006","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004007","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004008","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004009","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004010","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000004011","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""}]},{"key":"730-Prisma 2 Case","marketHashName":"730-Prisma 2 Case","appId":730,"sourceAppId":730,"name":"Prisma 2 Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_fr3cV6vT9avBvefWWDDGTxbZ14rhsTX7qkE90sDiHwt2pdC-TblJ2DsB1QPlK7Ee9riHKAA/128fx128f","commodity":1,"descriptions":[],"qty":47,"sellableQty":47,"marketableQty":47,"tradableQty":47,"marketable":true,"tradable":true,"tradeHoldText":"","assets":[{"assetId":"30000005000","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005001","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005002","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005003","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005004","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005005","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005006","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005007","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005008","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005009","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005010","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005011","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005012","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005013","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005014","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005015","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005016","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005017","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005018","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005019","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005020","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005021","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005022","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005023","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005024","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005025","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005026","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005027","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005028","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005029","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005030","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005031","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005032","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005033","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005034","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005035","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005036","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005037","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005038","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005039","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005040","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005041","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005042","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005043","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005044","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005045","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000005046","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""}]},{"key":"730-Operation Breakout Weapon Case","marketHashName":"730-Operation Breakout Weapon Case","appId":730,"sourceAppId":730,"name":"Operation Breakout Weapon Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_fqWxdv_b8O_w5eKXBWWXHw-smtrBvTHDmwEsl4jvWn4z_I3qWZwV1X5ZwW6dU5RcRF1o0/128fx128f","commodity":1,"descriptions":[],"qty":1,"sellableQty":0,"marketableQty":1,"tradableQty":0,"marketable":true,"tradable":false,"tradeHoldText":"","assets":[{"assetId":"30000006000","contextId":"2","marketable":true,"tradable":false,"tradeHoldText":""}]},{"key":"730-Fracture Case","marketHashName":"730-Fracture Case","appId":730,"sourceAppId":730,"name":"Fracture Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_fr3QV7aD7OP01IfbGDzPCmbsm4LU5GnvkzUsi4WvUmIqtci_CPQNyApsjE_lK7EfrhW545A/128fx128f","commodity":1,"descriptions":[],"qty":5,"sellableQty":5,"marketableQty":5,"tradableQty":5,"marketable":true,"tradable":true,"tradeHoldText":"","assets":[{"assetId":"30000007000","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000007001","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000007002","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000007003","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000007004","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""}]},{"key":"730-Spectrum 2 Case","marketHashName":"730-Spectrum 2 Case","appId":730,"sourceAppId":730,"name":"Spectrum 2 Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_frHoVu6D7PaA0JaDACjKUwOom47VrTSzrw0Vx4W_Sydz9JC7FZgckCZYjRPlK7EcPuDAQzw/128fx128f","commodity":1,"descriptions":[],"qty":88,"sellableQty":88,"marketableQty":88,"tradableQty":88,"marketable":true,"tradable":true,"tradeHoldText":"","assets":[{"assetId":"30000008000","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008001","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008002","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008003","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008004","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008005","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008006","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008007","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008008","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008009","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008010","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008011","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008012","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008013","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008014","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008015","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008016","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008017","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008018","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008019","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008020","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008021","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008022","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008023","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008024","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008025","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008026","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008027","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008028","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008029","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008030","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008031","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008032","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008033","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008034","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008035","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008036","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008037","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008038","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008039","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008040","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008041","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008042","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008043","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008044","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008045","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008046","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008047","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008048","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008049","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008050","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008051","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008052","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008053","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008054","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008055","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008056","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008057","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008058","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008059","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008060","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008061","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008062","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008063","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008064","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008065","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008066","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008067","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008068","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008069","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008070","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008071","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008072","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008073","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008074","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008075","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008076","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008077","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008078","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008079","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008080","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008081","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008082","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008083","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008084","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008085","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008086","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000008087","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""}]},{"key":"730-Danger Zone Case","marketHashName":"730-Danger Zone Case","appId":730,"sourceAppId":730,"name":"Danger Zone Case","type":"Base Grade Container","iconUrl":"https://community.cloudflare.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_fr3MVv_H4a6FucPPBWjDIkbdz4rg4Syyyxxsi5mzRntuvJCqVbwAgDZBwRPlK7EcZJ5GkQA/128fx128f","commodity":1,"descriptions":[],"qty":2,"sellableQty":2,"marketableQty":2,"tradableQty":2,"marketable":true,"tradable":true,"tradeHoldText":"","assets":[{"assetId":"30000009000","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""},{"assetId":"30000009001","contextId":"2","marketable":true,"tradable":true,"tradeHoldText":""}]}],"groupCount":10,"fetchedAt":1794164660262,"__quotes":[12.34,3.19,0.62,28.75,1.05,0.09,41.2,2.4,0.31,6.88]};
+  const LIB = [{"appId":730,"name":"Counter-Strike 2","installed":1,"tradeable":true,"ctx":"2","playtime":41200,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/730/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/730/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/730/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/730/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/730/header.jpg"},{"appId":570,"name":"Dota 2","installed":1,"tradeable":true,"ctx":"2","playtime":8800,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/570/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/570/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/570/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/570/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/570/header.jpg"},{"appId":440,"name":"Team Fortress 2","installed":1,"tradeable":true,"ctx":"2","playtime":120,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/440/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/440/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/440/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/440/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/440/header.jpg"},{"appId":252490,"name":"Rust","installed":1,"tradeable":true,"ctx":"2","playtime":2100,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/252490/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/252490/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/252490/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/252490/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/252490/header.jpg"},{"appId":1245620,"name":"ELDEN RING","installed":1,"tradeable":false,"ctx":"2","playtime":9600,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/1245620/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/1245620/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/1245620/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/1245620/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/1245620/header.jpg"},{"appId":1091500,"name":"Cyberpunk 2077","installed":1,"tradeable":false,"ctx":"2","playtime":3400,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/1091500/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/1091500/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/1091500/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/1091500/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/1091500/header.jpg"},{"appId":292030,"name":"The Witcher 3: Wild Hunt","installed":0,"tradeable":false,"ctx":"2","playtime":5200,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/292030/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/292030/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/292030/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/292030/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/292030/header.jpg"},{"appId":271590,"name":"Grand Theft Auto V","installed":1,"tradeable":true,"ctx":"2","playtime":1500,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/271590/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/271590/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/271590/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/271590/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/271590/header.jpg"},{"appId":578080,"name":"PUBG: BATTLEGROUNDS","installed":0,"tradeable":true,"ctx":"2","playtime":640,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/578080/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/578080/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/578080/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/578080/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/578080/header.jpg"},{"appId":413150,"name":"Stardew Valley","installed":0,"tradeable":false,"ctx":"2","playtime":1900,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/413150/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/413150/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/413150/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/413150/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/413150/header.jpg"},{"appId":892970,"name":"Valheim","installed":1,"tradeable":false,"ctx":"2","playtime":780,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/892970/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/892970/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/892970/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/892970/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/892970/header.jpg"},{"appId":367520,"name":"Hollow Knight","installed":0,"tradeable":false,"ctx":"2","playtime":420,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/367520/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/367520/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/367520/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/367520/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/367520/header.jpg"},{"appId":2358720,"name":"Black Myth: Wukong","installed":0,"tradeable":false,"ctx":"2","playtime":1100,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/2358720/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/2358720/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/2358720/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/2358720/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/2358720/header.jpg"},{"appId":1174180,"name":"Red Dead Redemption 2","installed":0,"tradeable":false,"ctx":"2","playtime":980,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/1174180/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/1174180/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/1174180/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/1174180/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/1174180/header.jpg"},{"appId":236390,"name":"War Thunder","installed":0,"tradeable":true,"ctx":"2","playtime":300,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/236390/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/236390/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/236390/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/236390/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/236390/header.jpg"},{"appId":346110,"name":"ARK: Survival Evolved","installed":0,"tradeable":true,"ctx":"2","playtime":260,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/346110/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/346110/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/346110/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/346110/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/346110/header.jpg"},{"appId":255710,"name":"Cities: Skylines","installed":0,"tradeable":false,"ctx":"2","playtime":190,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/255710/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/255710/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/255710/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/255710/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/255710/header.jpg"},{"appId":294100,"name":"RimWorld","installed":0,"tradeable":false,"ctx":"2","playtime":610,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/294100/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/294100/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/294100/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/294100/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/294100/header.jpg"},{"appId":322330,"name":"Don't Starve Together","installed":0,"tradeable":false,"ctx":"2","playtime":340,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/322330/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/322330/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/322330/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/322330/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/322330/header.jpg"},{"appId":431960,"name":"Wallpaper Engine","installed":0,"tradeable":true,"ctx":"2","playtime":2400,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/431960/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/431960/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/431960/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/431960/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/431960/header.jpg"},{"appId":814380,"name":"Sekiro: Shadows Die Twice","installed":0,"tradeable":false,"ctx":"2","playtime":700,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/814380/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/814380/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/814380/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/814380/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/814380/header.jpg"},{"appId":582010,"name":"Monster Hunter: World","installed":0,"tradeable":false,"ctx":"2","playtime":520,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/582010/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/582010/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/582010/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/582010/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/582010/header.jpg"},{"appId":548430,"name":"Deep Rock Galactic","installed":1,"tradeable":false,"ctx":"2","playtime":460,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/548430/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/548430/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/548430/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/548430/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/548430/header.jpg"},{"appId":632360,"name":"Risk of Rain 2","installed":0,"tradeable":false,"ctx":"2","playtime":380,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/632360/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/632360/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/632360/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/632360/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/632360/header.jpg"},{"appId":945360,"name":"Among Us","installed":0,"tradeable":false,"ctx":"2","playtime":150,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/945360/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/945360/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/945360/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/945360/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/945360/header.jpg"},{"appId":1203220,"name":"NARAKA: BLADEPOINT","installed":0,"tradeable":false,"ctx":"2","playtime":90,"lastPlayed":0,"coversPortrait":["https://steamcdn-a.akamaihd.net/steam/apps/1203220/library_600x900.jpg","https://steamcdn-a.akamaihd.net/steam/apps/1203220/header.jpg"],"covers":["https://steamcdn-a.akamaihd.net/steam/apps/1203220/header.jpg","https://steamcdn-a.akamaihd.net/steam/apps/1203220/capsule_231x87.jpg"],"cover":"https://steamcdn-a.akamaihd.net/steam/apps/1203220/header.jpg"}];
+  const ACC = [{"steamId":"76561198000000001","personaName":"主号 · Kai","accountName":"kai_main","timestamp":1794000000,"mostRecent":true,"rememberPassword":true,"allowAutoLogin":true,"ssfnFiles":["ssfn123"],"ssfnTotal":2,"ssfnUncertain":false},{"steamId":"76561198000000002","personaName":"小号 · 库存仓","accountName":"kai_alt1","timestamp":1793000000,"mostRecent":false,"rememberPassword":true,"allowAutoLogin":true,"ssfnFiles":[],"ssfnTotal":2,"ssfnUncertain":true},{"steamId":"76561198000000003","personaName":"朋友号","accountName":"friend_x","timestamp":1791000000,"mostRecent":false,"rememberPassword":false,"allowAutoLogin":false,"ssfnFiles":[],"ssfnTotal":2,"ssfnUncertain":false}];
+  const noop = () => () => {};
+  const ok = (data) => Promise.resolve({ ok: true, data });
+
+  // 首屏给库存打上行情，好看出"已定价/未定价/小计"三列的真实样子
+  const floors = INV.__quotes;
+  window.__seedQuote = true;
+  window.__floors = floors;
+
+  window.api = {
+    app: { info: () => ok({ version: '2.6.1', platform: 'win32', electron: '31.3.1', node: '20.18.0', userData: 'E:/preview', encryptionAvailable: true, steamPath: 'C:/Program Files (x86)/Steam', dev: true }),
+      minimize: noop, maximize: noop, close: noop,
+      openExternal: (url) => { console.log('[mock openExternal]', url); return ok(true); } },
+    settings: { get: () => ok({ steamPath: 'C:/Program Files (x86)/Steam', quoteIntervalMs: 1800, sellIntervalMs: 4000, guardMinRatio: 0.7, closeSteamBeforeSwitch: true, confirmEach: true, encryptSsfn: true, uiZoom: 1.08, customApps: [] }),
+      set: (p) => ok(Object.assign({ uiZoom: 1.08 }, p)),
+      chooseSteamPath: () => ok(null) },
+    accounts: { list: () => ok({ steamPath: 'C:/Program Files (x86)/Steam', configFound: true, users: ACC, autoLoginUser: 'kai_main', warning: null }),
+      switchTo: () => ok({ state: 'done', message: '已切换' }), status: () => ok({ state: 'idle' }), onStatus: noop },
+    library: { scan: () => ok({ games: LIB, total: LIB.length }), owned: () => ok({ games: LIB, count: LIB.length }),
+      registry: () => ok(LIB.map((g) => ({ appId: g.appId, name: g.name, ctx: '2' }))), marketApps: () => ok([]),
+      resolveApp: (id) => ok({ appId: id, name: 'App ' + id, tradeable: true, probeCount: 42, marketNote: '预览模式' }) },
+    ui: { setZoom: (f) => ok(f) },
+    session: { login: () => ok({ ok: true, steamId: ACC[0].steamId }), state: () => ok(ACC.map((a, i) => ({ steamId: a.steamId, hasSession: i < 2, online: i === 0 }))),
+      logout: () => ok({ ok: true }), diag: () => ok({ partition: 'persist:steam', cookies: { community: ['sessionid', 'steamLoginSecure'], hasLoginSecure: true, store: [] }, bridgeReady: true, loggedIn: true, steamId: ACC[0].steamId, probe: { status: 200, url: 'https://steamcommunity.com/my/profile' }, error: null }),
+      bridgeRefresh: () => ok({ ok: true }), bridgeShow: () => ok({ ok: true }), bridgeHide: () => ok({ ok: true }),
+      openMobileConf: () => { alert('预览模式：已模拟打开 Steam 移动端/市场待处理确认窗口'); return ok(true); } },
+    inventory: { fetch: () => ok(INV), discover: () => ok({ probed: 5, found: [] }), fetchMany: () => ok({ ok: [], failed: [] }) },
+    market: { quote: (appId, pairs) => {
+        const results = (pairs || []).map((p, i) => ({ marketHashName: p.hashName, appId: p.appId, lowest: floors[i % floors.length], median: floors[i % floors.length] * 1.08, volume: 100 + i * 37, state: 'ok', at: Date.now() }));
+        return ok({ results, total: results.length, ok: results.length, fail: 0 });
+      }, quoteOne: () => ok({ state: 'ok', lowest: 1, median: 1 }), stats: () => ok({ state: 'idle' }), onProgress: noop },
+    sell: { plan: () => ok({ plan: [] }), run: () => ok({ ok: 0, fail: 0, executed: [] }), cancel: () => ok({}),
+      listings: () => ok({ steamId: ACC[0].steamId, count: 4, total: 4, apps: { 730: 3, 753: 1 }, map: {
+        '30000001001': { listingId: '5111222333', appId: 730, name: 'Dreams & Nightmares Case', marketHashName: '730-Dreams & Nightmares Case', price: 12.34, state: 1, createdAt: 1793900000 },
+        '30000001002': { listingId: '5111222334', appId: 730, name: 'Revolution Case', marketHashName: '730-Revolution Case', price: 3.19, state: 1, createdAt: 1793900000 },
+        '30000002001': { listingId: '5111222335', appId: 753, name: 'Steam 集换式卡牌', marketHashName: '753-Steam Trading Card', price: 0.45, state: 1, createdAt: 1793800000 },
+        '30000002002': { listingId: '5111222336', appId: 570, name: 'Immortal Treasure', marketHashName: '570-Immortal Treasure', price: 8.8, state: 2, createdAt: 1793800000 },
+      } }),
+      remove: () => ok({ ok: true }), onProgress: noop },
+    license: { status: () => ok({ plan: 'free', features: { canSell: true } }), activate: () => ok({}) },
+    store: {
+      price: (idOrName) => {
+        const id = Number(idOrName) || 2358720;
+        return ok({
+          appId: id,
+          name: id === 2358720 ? 'Black Myth: Wukong (黑神话：悟空)' : id === 1245620 ? 'ELDEN RING' : 'App ' + id,
+          isFree: id === 730 || id === 2923300,
+          currency: 'CNY',
+          initialPriceYuan: 268,
+          finalPriceYuan: 268,
+          initialPriceFormatted: '¥ 268.00',
+          finalPriceFormatted: '¥ 268.00',
+          discountPercent: 0,
+          headerImage: 'https://steamcdn-a.akamaihd.net/steam/apps/' + id + '/header.jpg',
+          releaseDate: '2024-08-20',
+          comingSoon: false,
+          type: 'game',
+          steamStoreUrl: 'https://store.steampowered.com/app/' + id + '/',
+        });
+      },
+      idleGames: () => ok([
+        { appId: 2923300, name: 'Banana', category: '挂机点击 / 道具掉落', releaseDate: '2024-04-23', status: '持续热门 · 掉落正常', statusTag: 'active', dropInterval: '每 3 小时掉落普通香蕉，每 18 小时掉落稀有香蕉', avgPrice: '¥0.03 ~ ¥1,000+', desc: '点击香蕉类鼻祖，通过游戏在线挂机自动掉落各种不同外观的香蕉饰品，可在 Steam 社区市场自由买卖。' },
+        { appId: 2977660, name: 'Cats', category: '寻物点击 / 掉落道具', releaseDate: '2024-05-21', status: '掉落正常 · 每日掉落', statusTag: 'active', dropInterval: '每 3 小时随机掉落 1 款猫咪主题道具', avgPrice: '¥0.05 ~ ¥300+', desc: '黑白手绘风格寻猫游戏，在线挂机与点击均可获得独特品种猫咪饰品，全系列道具均可在市场挂牌出售。' },
+        { appId: 3014060, name: 'Egg', category: '挂机开蛋 / 社区收藏', releaseDate: '2024-06-03', status: '稳定运营 · 限量蛋', statusTag: 'active', dropInterval: '每 24 小时自动产出 1 枚彩蛋', avgPrice: '¥0.04 ~ ¥100+', desc: '经典极简挂机游戏，只需保持游戏开启即可按自然日周期开出限量蛋道具，可交易可出售。' },
+        { appId: 730, name: 'Counter-Strike 2', category: '周常周本 / 核心掉落', releaseDate: '2023-09-28', status: '官方每周升级礼包', statusTag: 'premier', dropInterval: '每周二晚重置，经验升级必得 1 箱子 + 1 涂鸦/皮肤', avgPrice: '¥3.00 ~ ¥70.00 (箱子保底)', desc: '最具保值和流动性的掉落游戏。每周升 1 级即可自选武器箱与武器皮肤，箱子单价极高（如电竞箱/梦魇箱/变革箱）。' },
+      ]),
+    },
+  };
+
+  window.__preview = true;
+})();
+</script>
+<script src="/SteamDesk-src-2.6.1/renderer/app.js"></script>
+</body>
+</html>
