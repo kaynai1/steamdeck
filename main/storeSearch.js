@@ -142,28 +142,118 @@ function getIdleDropGames() {
  */
 const REGION_CC = { CN: 'CN', HK: 'HK', TW: 'TW', US: 'US', JP: 'JP', EU: 'DE', RU: 'RU' };
 
+/** 带重试的 fetch：直连 Steam 商店偶发超时/重置，单次 6 秒太紧，重试 2 次基本都能成 */
+async function fetchRetry(url, timeoutMs = 12000, retries = 2) {
+  let lastErr = null;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (e) {
+      lastErr = e;
+      if (i < retries) await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+  throw lastErr || new Error('网络请求失败');
+}
+
+/** 区服 → AppID 的解析缓存（游戏名搜索比较贵，别每次区服都搜一遍） */
+const appIdCache = new Map(); // term -> { appId, at }
+
+async function resolveAppId(term, cc, lang) {
+  const key = String(term).trim().toLowerCase();
+  const cached = appIdCache.get(key);
+  if (cached && Date.now() - cached.at < 30 * 60 * 1000) return cached.appId;
+  const sUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(
+    term
+  )}&l=${lang}&cc=${cc}`;
+  const sRes = await fetchRetry(sUrl, 10000, 1);
+  const sJson = await sRes.json();
+  let appId = 0;
+  if (sJson && sJson.items && sJson.items.length) {
+    appId = Number(sJson.items[0].id);
+  }
+  if (appId) appIdCache.set(key, { appId, at: Date.now() });
+  return appId;
+}
+
+/**
+ * 多区服价格对比（不需要任何 API Key）
+ * Steam 官方 appdetails 用 ?cc= 就能查任意区服，这里并发 9 个常用区，
+ * 10 分钟缓存，单个区失败不影响其它区的展示。
+ */
+const MULTI_REGIONS = [
+  { cc: 'cn', label: '🇨🇳 中国大陆', lang: 'schinese' },
+  { cc: 'hk', label: '🇭🇰 中国香港', lang: 'tchinese' },
+  { cc: 'tw', label: '🇹🇼 中国台湾', lang: 'tchinese' },
+  { cc: 'us', label: '🇺🇸 美国', lang: 'english' },
+  { cc: 'jp', label: '🇯🇵 日本', lang: 'japanese' },
+  { cc: 'kr', label: '🇰🇷 韩国', lang: 'koreana' },
+  { cc: 'ru', label: '🇷🇺 俄罗斯', lang: 'russian' },
+  { cc: 'tr', label: '🇹🇷 土耳其', lang: 'turkish' },
+  { cc: 'ar', label: '🇦🇷 阿根廷', lang: 'spanish' },
+  { cc: 'br', label: '🇧🇷 巴西', lang: 'portuguese' },
+];
+
+const regionCache = new Map(); // appId -> { at, rows: [] }
+
+async function queryMultiRegionPrice(appIdOrSearch) {
+  let appId = Number(appIdOrSearch);
+  if (!appId || isNaN(appId)) {
+    appId = await resolveAppId(String(appIdOrSearch), 'cn', 'schinese');
+  }
+  if (!appId) throw new Error('未找到匹配的 Steam 游戏，请输入正确的 AppID 或游戏名称');
+
+  const cached = regionCache.get(appId);
+  if (cached && Date.now() - cached.at < 10 * 60 * 1000) {
+    return { appId, fromCache: true, at: cached.at, rows: cached.rows };
+  }
+
+  const results = await Promise.allSettled(
+    MULTI_REGIONS.map(async (r) => {
+      const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=${r.cc}&l=${r.lang}&filters=basic,price_overview`;
+      const res = await fetchRetry(url, 12000, 1);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const d = json[String(appId)];
+      if (!d || !d.success || !d.data) throw new Error('商店未收录');
+      const data = d.data;
+      const po = data.price_overview || null;
+      return {
+        cc: r.cc,
+        region: r.label,
+        name: data.name || '',
+        isFree: Boolean(data.is_free),
+        currency: po ? po.currency : '',
+        finalFormatted: data.is_free ? '免费' : po ? po.final_formatted : '未定价',
+        initialFormatted: po ? po.initial_formatted : '',
+        finalYuan: po ? po.final / 100 : 0,
+        discountPercent: po ? po.discount_percent || 0 : 0,
+        isUnavailable: !po && !data.is_free,
+      };
+    })
+  );
+
+  const rows = MULTI_REGIONS.map((r, i) => {
+    const res = results[i];
+    if (res.status === 'fulfilled') return { ok: true, ...res.value };
+    return { ok: false, cc: r.cc, region: r.label, error: (res.reason && res.reason.message) || '查询失败' };
+  });
+
+  regionCache.set(appId, { at: Date.now(), rows });
+  return { appId, fromCache: false, at: Date.now(), rows };
+}
+
 async function queryStorePrice(appIdOrSearch, opts = {}) {
   let appId = Number(appIdOrSearch);
   const cc = REGION_CC[String(opts.region || 'CN').toUpperCase()] || 'CN';
   const lang = cc === 'CN' ? 'schinese' : 'english';
 
-  // 如果输入的是游戏名，先走 Steam 商店搜索建议拿 AppID
+  // 如果输入的是游戏名，先走 Steam 商店搜索建议拿 AppID（带重试，之前 6 秒单次太容易超时）
   if (!appId || isNaN(appId)) {
-    try {
-      const sUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(
-        appIdOrSearch
-      )}&l=${lang}&cc=${cc}`;
-      const sRes = await fetch(sUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
-        signal: AbortSignal.timeout(6000),
-      });
-      const sJson = await sRes.json();
-      if (sJson && sJson.items && sJson.items.length) {
-        appId = Number(sJson.items[0].id);
-      }
-    } catch {
-      /* search failed, fallback */
-    }
+    appId = await resolveAppId(appIdOrSearch, cc, lang);
   }
 
   if (!appId || isNaN(appId) || appId <= 0) {
@@ -171,10 +261,7 @@ async function queryStorePrice(appIdOrSearch, opts = {}) {
   }
 
   const detailUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=${cc}&l=${lang}&filters=basic,price_overview,release_date,platforms`;
-  const r = await fetch(detailUrl, {
-    headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
-    signal: AbortSignal.timeout(7000),
-  });
+  const r = await fetchRetry(detailUrl, 12000, 2);
 
   if (!r.ok) {
     throw new Error(`Steam 商店接口响应异常 (HTTP ${r.status})`);
@@ -213,4 +300,5 @@ async function queryStorePrice(appIdOrSearch, opts = {}) {
 module.exports = {
   getIdleDropGames,
   queryStorePrice,
+  queryMultiRegionPrice,
 };

@@ -1094,6 +1094,7 @@ ipcMain.handle('license:activate', wrap(async (key) => license.activate(key)));
 
 ipcMain.handle('store:price', wrap(async (appIdOrName) =>
   storeSearch.queryStorePrice(appIdOrName, { region: store.getSettings().storeRegion })));
+ipcMain.handle('store:regionPrices', wrap(async (appIdOrName) => storeSearch.queryMultiRegionPrice(appIdOrName)));
 ipcMain.handle('store:idleGames', wrap(async () => storeSearch.getIdleDropGames()));
 ipcMain.handle('store:idleStats', wrap(async (force) => {
   const stats = await require('./main/idleMarket').all({ force: !!force });

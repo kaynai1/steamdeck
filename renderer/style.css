@@ -2759,3 +2759,59 @@ input[type=text], input[type=number], input[type=password], select, textarea {
 .gact-row { padding: 8px 12px 12px; gap: 8px; }
 .gact-btn { height: 32px !important; font-size: 12.5px !important; border-radius: 10px !important; }
 .gcard.portrait .gact-btn { height: 30px !important; font-size: 12px !important; }
+
+/* ============================================================
+   2.6.65 各区服价格对比表
+   ============================================================ */
+#storeRegionBox {
+  background: var(--subtle-card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.region-loading, .region-failed, .region-note {
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.6;
+}
+.region-failed { color: var(--amber); }
+.region-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 6px 14px;
+  margin-bottom: 8px;
+}
+.region-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  transition: border-color .12s ease;
+}
+.region-row:hover { border-color: var(--line2); }
+.region-row.min {
+  border-color: rgba(80, 170, 110, .55);
+  background: rgba(80, 170, 110, .07);
+  box-shadow: 0 0 0 1px rgba(80, 170, 110, .18) inset;
+}
+.region-row.fail { opacity: .72; }
+.region-name { flex: 1; min-width: 0; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.region-currency { font-size: 10px; color: var(--dim); font-weight: 500; width: 34px; text-align: right; }
+.region-price { display: flex; align-items: center; gap: 6px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.region-price.dim { color: var(--dim); font-weight: 400; }
+.region-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+.region-badge.free { color: #0A2413; background: rgba(90, 190, 120, .92); }
+.region-badge.none { color: var(--muted); background: var(--badge-bg); }
+.region-badge.cut { color: #fff; background: var(--red); }

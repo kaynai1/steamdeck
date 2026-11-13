@@ -8706,6 +8706,64 @@ async function doStoreSearch(term) {
   }
   loadStoreHolding(d.appId);
   loadStoreItad(d.appId);
+  loadStoreRegionPrices(d.appId);
+}
+
+/**
+ * 各区服价格对比表（Steam 官方接口，无需任何 Key）。
+ * 查价成功后自动加载；单个区查询失败会显示原因但不影响其它区。
+ */
+async function loadStoreRegionPrices(appId) {
+  const box = $('#storeRegionBox');
+  if (!box) return;
+  box.style.display = '';
+  box.innerHTML = '<div class="region-loading">正在查询各区服价格（Steam 官方数据）…</div>';
+  const r = await call(SD.store.regionPrices(appId), { silent: true, noLog: true });
+  if (!r.ok) {
+    box.innerHTML = `<div class="region-failed">各区价格查询失败：${esc(r.message || '网络异常')}</div>`;
+    return;
+  }
+  const { rows, at } = r.data || {};
+  if (!Array.isArray(rows) || !rows.length) {
+    box.innerHTML = '<div class="region-failed">没有拿到区服数据</div>';
+    return;
+  }
+  const ok = rows.filter((x) => x.ok);
+  // 有价格的区里找最便宜（只比较人民币换算前的原始数值意义不大，币种不同；
+  // 用 finalYuan = final/100 只是“数字对比”，标注“未折算”）
+  let cheapest = null;
+  for (const x of ok) {
+    if (x.isFree) { cheapest = x; break; }
+    if (!x.isUnavailable && x.finalYuan > 0) {
+      if (!cheapest || (x.finalYuan < cheapest.finalYuan)) cheapest = x;
+    }
+  }
+  const rowsHtml = rows
+    .map((x) => {
+      if (!x.ok) {
+        return `<div class="region-row fail"><span class="region-name">${esc(x.region)}</span><span class="region-price dim">查询失败</span></div>`;
+      }
+      const isMin = cheapest && x.ok && x.cc === cheapest.cc;
+      const tag = x.isFree
+        ? '<span class="region-badge free">免费</span>'
+        : x.isUnavailable
+          ? '<span class="region-badge none">未上架</span>'
+          : x.discountPercent > 0
+            ? `<span class="region-badge cut">-${x.discountPercent}%</span>`
+            : '';
+      return `<div class="region-row${isMin ? ' min' : ''}">
+        <span class="region-name">${esc(x.region)}</span>
+        <span class="region-currency">${esc(x.currency || '')}</span>
+        <span class="region-price">${esc(x.finalFormatted)}${tag}</span>
+      </div>`;
+    })
+    .join('');
+
+  const note = [
+    '各区价格为当地商店页原币标价（未折算人民币）',
+    at ? ` · 更新于 ${new Date(at).toLocaleTimeString('zh-CN')}` : '',
+  ].join('');
+  box.innerHTML = `<div class="region-grid">${rowsHtml}</div><div class="region-note">${note}。想买最低价区请自行确认账号区服与支付方式限制。</div>`;
 }
 
 /** 查询结果里顺带显示：这个游戏在我库存里有多少、挂了几件、成本多少 */
