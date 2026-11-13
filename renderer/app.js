@@ -1991,6 +1991,7 @@ async function loadInfo() {
   if (!r.ok) return;
   S.info = r.data;
   $('#ver').textContent = r.data.version || '';
+  if ($('#btnUpdate')) $('#btnUpdate').title = `检查版本更新 (v${r.data.version || '?'})`;
   S.settings = (await call(SD.settings.get(), { noLog: true })).data || {};
   renderToggles();
   renderRailFooter();
