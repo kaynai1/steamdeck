@@ -2793,16 +2793,38 @@ input[type=text], input[type=number], input[type=password], select, textarea {
   transition: border-color .12s ease;
 }
 .region-row:hover { border-color: var(--line2); }
-.region-row.min {
-  border-color: rgba(80, 170, 110, .55);
-  background: rgba(80, 170, 110, .07);
-  box-shadow: 0 0 0 1px rgba(80, 170, 110, .18) inset;
-}
 .region-row.fail { opacity: .72; }
 .region-name { flex: 1; min-width: 0; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.region-currency { font-size: 10px; color: var(--dim); font-weight: 500; width: 34px; text-align: right; }
 .region-price { display: flex; align-items: center; gap: 6px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
 .region-price.dim { color: var(--dim); font-weight: 400; }
+/* 人民币换算参考列 */
+.region-cny {
+  flex: none; width: 78px; text-align: right;
+  font-size: 11.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* 史低行 */
+.region-history {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: rgba(224, 166, 60, .08);
+  border: 1px solid rgba(224, 166, 60, .38);
+  font-size: 12.5px;
+}
+.rh-label {
+  flex: none;
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; line-height: 1;
+  color: #6b4d13; background: rgba(224, 166, 60, .25);
+}
+.rh-value { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.rh-value.dim { color: var(--muted); font-weight: 500; }
+.rh-sub { margin-left: auto; font-size: 11px; color: var(--dim); }
 .region-badge {
   display: inline-flex;
   align-items: center;
@@ -2855,6 +2877,69 @@ input[type=text], input[type=number], input[type=password], select, textarea {
 .stats-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stats-ccu { flex: none; width: 76px; text-align: right; font-size: 12.5px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
 .stats-actions { flex: none; display: flex; gap: 6px; }
+
+/* ---------------- 2.6.67 游戏统计卡片式（对齐免费领取/游戏库卡片） ---------------- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  gap: 13px;
+}
+.statcard {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--card-shadow);
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.statcard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .10);
+  border-color: var(--line2);
+}
+.statcard.fail { opacity: .75; }
+.statcard .cov {
+  position: relative;
+  aspect-ratio: 460 / 215;
+  display: block;
+  overflow: hidden;
+  background: linear-gradient(150deg, #7FA0C4, #3E5670);
+}
+.statcard .cov img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.statcard .covfb {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 26px; font-weight: 700; color: rgba(0, 0, 0, .45); letter-spacing: 1px;
+}
+.statcard .plat {
+  position: absolute; left: 10px; top: 10px;
+  font-size: 10.5px; font-weight: 600; line-height: 1;
+  padding: 5px 9px; border-radius: 999px;
+  color: #fff; background: rgba(18, 33, 50, .78);
+  backdrop-filter: blur(4px);
+}
+.statcard .rank {
+  position: absolute; right: 10px; top: 10px;
+  font-size: 11px; font-weight: 800; line-height: 1;
+  padding: 5px 8px; border-radius: 999px;
+  color: #fff; backdrop-filter: blur(4px);
+}
+.statcard .rank.r1 { background: rgba(212, 160, 23, .92); }
+.statcard .rank.r2 { background: rgba(150, 156, 165, .92); }
+.statcard .rank.r3 { background: rgba(187, 127, 84, .92); }
+.statcard .ib2 { padding: 10px 12px 4px; }
+.statcard .nm {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+  overflow: hidden; word-break: break-word;
+}
+.statcard .ccu-line { display: flex; align-items: baseline; gap: 7px; margin-top: 6px; }
+.statcard .ccu-v { font-size: 19px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; }
+.statcard .ccu-v.dim { color: var(--dim); font-weight: 500; }
+.statcard .ccu-l { font-size: 10.5px; color: var(--dim); }
+.statcard .gact-row { padding: 8px 12px 12px; gap: 7px; }
 .stats-lookup-card {
   display: flex;
   align-items: center;

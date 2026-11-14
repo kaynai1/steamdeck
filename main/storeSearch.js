@@ -197,6 +197,45 @@ const MULTI_REGIONS = [
   { cc: 'br', label: '🇧🇷 巴西', lang: 'portuguese' },
 ];
 
+/**
+ * CheapShark 历史最低价（免费无 Key，需要带应用标识的 User-Agent）。
+ * 链路：/deals?steamAppID=X 拿当前跨店最低 → /deals?id= 拿 cheapestPrice 史低。
+ * 失败返回 null（不阻塞区服价格展示）。
+ */
+const CS_UA = 'SteamDesk/2.6.67 (+https://github.com/kaynai1/steamdeck)';
+const csCache = new Map(); // appId -> { at, data }
+
+async function fetchHistoryLow(appId) {
+  const hit = csCache.get(appId);
+  if (hit && Date.now() - hit.at < 30 * 60 * 1000) return hit.data;
+  let data = null;
+  try {
+    const listRes = await fetch(`https://www.cheapshark.com/api/1.0/deals?steamAppID=${appId}&sortBy=Price`, {
+      headers: { 'User-Agent': CS_UA, Accept: 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    });
+    const list = await listRes.json();
+    if (Array.isArray(list) && list.length) {
+      const d0 = list[0];
+      data = { currentLowestUsd: Number(d0.salePrice) || null, store: `store ${d0.storeID}` };
+      const detRes = await fetch(`https://www.cheapshark.com/api/1.0/deals?id=${d0.dealID}`, {
+        headers: { 'User-Agent': CS_UA, Accept: 'application/json' },
+        signal: AbortSignal.timeout(10000),
+      });
+      const det = await detRes.json();
+      const ever = det && det.cheapestPrice;
+      if (ever && ever.price != null) {
+        data.everUsd = Number(ever.price);
+        data.everAt = Number(ever.date) ? Number(ever.date) * 1000 : 0;
+      }
+    }
+  } catch {
+    data = null;
+  }
+  csCache.set(appId, { at: Date.now(), data });
+  return data;
+}
+
 const regionCache = new Map(); // appId -> { at, rows: [] }
 
 async function queryMultiRegionPrice(appIdOrSearch) {
@@ -208,42 +247,82 @@ async function queryMultiRegionPrice(appIdOrSearch) {
 
   const cached = regionCache.get(appId);
   if (cached && Date.now() - cached.at < 10 * 60 * 1000) {
-    return { appId, fromCache: true, at: cached.at, rows: cached.rows };
+    return { appId, fromCache: true, at: cached.at, ...cached.full };
   }
 
-  const results = await Promise.allSettled(
-    MULTI_REGIONS.map(async (r) => {
-      const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=${r.cc}&l=${r.lang}&filters=basic,price_overview`;
-      const res = await fetchRetry(url, 12000, 1);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const d = json[String(appId)];
-      if (!d || !d.success || !d.data) throw new Error('商店未收录');
-      const data = d.data;
-      const po = data.price_overview || null;
-      return {
-        cc: r.cc,
-        region: r.label,
-        name: data.name || '',
-        isFree: Boolean(data.is_free),
-        currency: po ? po.currency : '',
-        finalFormatted: data.is_free ? '免费' : po ? po.final_formatted : '未定价',
-        initialFormatted: po ? po.initial_formatted : '',
-        finalYuan: po ? po.final / 100 : 0,
-        discountPercent: po ? po.discount_percent || 0 : 0,
-        isUnavailable: !po && !data.is_free,
-      };
-    })
-  );
+  // 并行：各区价格 + CheapShark 史低
+  const [results, history] = await Promise.all([
+    Promise.allSettled(
+      MULTI_REGIONS.map(async (r) => {
+        const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=${r.cc}&l=${r.lang}&filters=basic,price_overview`;
+        const res = await fetchRetry(url, 12000, 1);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const d = json[String(appId)];
+        if (!d || !d.success || !d.data) throw new Error('商店未收录');
+        const data = d.data;
+        const po = data.price_overview || null;
+        return {
+          cc: r.cc,
+          region: r.label,
+          name: data.name || '',
+          isFree: Boolean(data.is_free),
+          currency: po ? po.currency : '',
+          finalFormatted: data.is_free ? '免费' : po ? po.final_formatted : '未定价',
+          initialFormatted: po ? po.initial_formatted : '',
+          finalYuan: po ? po.final / 100 : 0,
+          discountPercent: po ? po.discount_percent || 0 : 0,
+          isUnavailable: !po && !data.is_free,
+        };
+      })
+    ),
+    fetchHistoryLow(appId),
+  ]);
+
+  // 汇率换算：一次拿汇率表，逐区换算人民币参考价
+  let fx = null;
+  try {
+    fx = await require('./fxRates').ratesPerUsd();
+  } catch {
+    fx = null;
+  }
+  const cnyPerUsd = fx && fx.rates ? fx.rates.CNY : null;
+  const toCnyOf = (finalYuanNum, currency) => {
+    const cur = String(currency || '').toUpperCase();
+    const v = Number(finalYuanNum);
+    if (!Number.isFinite(v) || !fx || !fx.rates) return null;
+    if (cur === 'CNY') return Math.round(v * 100) / 100;
+    const perUsd = fx.rates[cur];
+    if (!perUsd || !cnyPerUsd) return null;
+    return Math.round((v / perUsd) * cnyPerUsd * 100) / 100;
+  };
 
   const rows = MULTI_REGIONS.map((r, i) => {
     const res = results[i];
-    if (res.status === 'fulfilled') return { ok: true, ...res.value };
+    if (res.status === 'fulfilled') {
+      const row = { ok: true, ...res.value };
+      row.cny = toCnyOf(row.finalYuan, row.currency);
+      return row;
+    }
     return { ok: false, cc: r.cc, region: r.label, error: (res.reason && res.reason.message) || '查询失败' };
   });
 
-  regionCache.set(appId, { at: Date.now(), rows });
-  return { appId, fromCache: false, at: Date.now(), rows };
+  // 史低换算人民币
+  let historyOut = null;
+  if (history) {
+    historyOut = { ...history };
+    if (cnyPerUsd && history.everUsd != null) historyOut.everCny = Math.round(history.everUsd * cnyPerUsd * 100) / 100;
+    if (cnyPerUsd && history.currentLowestUsd != null) historyOut.currentLowestCny = Math.round(history.currentLowestUsd * cnyPerUsd * 100) / 100;
+  }
+
+  const full = {
+    rows,
+    history: historyOut,
+    fxNote: fx ? fx.source : '',
+    fxAt: fx ? Date.now() : 0,
+  };
+  regionCache.set(appId, { at: Date.now(), full });
+  return { appId, fromCache: false, at: Date.now(), ...full };
 }
 
 async function queryStorePrice(appIdOrSearch, opts = {}) {

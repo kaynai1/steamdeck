@@ -450,17 +450,29 @@ function renderStats(d) {
     body.innerHTML = `<div class="empty"><b>在线人数接口连不上</b>api.steampowered.com 当前不可达；网络恢复后点「刷新排行」重试。</div>`;
     return;
   }
+  // 卡片式：横版封面 + Steam 标签 + 排名徽章 + 信息区 + 按钮行（与免费领取/游戏库同一套视觉）
   body.innerHTML = rows
     .map(
-      (g, i) => `<div class="stats-row${g.ok ? '' : ' fail'}">
-      <span class="stats-rank">${g.ok ? i + 1 : '—'}</span>
-      <span class="stats-name">${esc(g.name)}</span>
-      <span class="stats-ccu">${g.ok ? fmtCcu(g.ccu) : '查询失败'}</span>
-      <span class="stats-actions">
-        <button class="btn s" data-launch="${esc(String(g.appId))}" title="启动游戏">启动</button>
-        <button class="btn s" data-market="${esc(String(g.appId))}" title="打开社区市场">市场</button>
-        <button class="btn s" data-store-monitor="${esc(String(g.appId))}" title="加入挂机行情监控">加监控</button>
-      </span>
+      (g, i) => `<div class="statcard${g.ok ? '' : ' fail'}">
+      <div class="cov">
+        <img src="sdimg://app/${esc(String(g.appId))}/header.jpg" alt="${esc(g.name)}" loading="lazy" decoding="async" onerror="this.remove()" />
+        <span class="covfb">${esc((g.name || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?')}</span>
+        <span class="plat">Steam</span>
+        ${g.ok && i < 3 ? `<span class="rank r${i + 1}">#${i + 1}</span>` : ''}
+      </div>
+      <div class="ib2">
+        <div class="nm" title="${esc(g.name)}">${esc(g.name)}</div>
+        <div class="ccu-line">
+          ${g.ok
+            ? `<span class="ccu-v">${fmtCcu(g.ccu)}</span><span class="ccu-l">当前在线</span>`
+            : '<span class="ccu-v dim">—</span><span class="ccu-l">查询失败</span>'}
+        </div>
+      </div>
+      <div class="gact-row">
+        <button class="btn s gact-btn" data-launch="${esc(String(g.appId))}" title="通过 Steam 客户端启动">启动</button>
+        <button class="btn s gact-btn" data-market="${esc(String(g.appId))}" title="打开社区市场">市场</button>
+        <button class="btn s gact-btn" data-store-monitor="${esc(String(g.appId))}" title="加入挂机行情监控">加监控</button>
+      </div>
     </div>`
     )
     .join('');
@@ -8951,38 +8963,30 @@ async function doStoreSearch(term) {
 /**
  * 各区服价格对比表（Steam 官方接口，无需任何 Key）。
  * 查价成功后自动加载；单个区查询失败会显示原因但不影响其它区。
+ * 每区 = 原币标价 + 人民币参考换算（不做"最低高亮"，纯参考）；
+ * 顶部一行显示 CheapShark 跨店历史最低价（同样换算人民币）。
  */
 async function loadStoreRegionPrices(appId) {
   const box = $('#storeRegionBox');
   if (!box) return;
   box.style.display = '';
-  box.innerHTML = '<div class="region-loading">正在查询各区服价格（Steam 官方数据）…</div>';
+  box.innerHTML = '<div class="region-loading">正在查询各区服价格与史低（Steam 官方 + CheapShark）…</div>';
   const r = await call(SD.store.regionPrices(appId), { silent: true, noLog: true });
   if (!r.ok) {
     box.innerHTML = `<div class="region-failed">各区价格查询失败：${esc(r.message || '网络异常')}</div>`;
     return;
   }
-  const { rows, at } = r.data || {};
+  const { rows, at, history, fxNote } = r.data || {};
   if (!Array.isArray(rows) || !rows.length) {
     box.innerHTML = '<div class="region-failed">没有拿到区服数据</div>';
     return;
   }
-  const ok = rows.filter((x) => x.ok);
-  // 有价格的区里找最便宜（只比较人民币换算前的原始数值意义不大，币种不同；
-  // 用 finalYuan = final/100 只是“数字对比”，标注“未折算”）
-  let cheapest = null;
-  for (const x of ok) {
-    if (x.isFree) { cheapest = x; break; }
-    if (!x.isUnavailable && x.finalYuan > 0) {
-      if (!cheapest || (x.finalYuan < cheapest.finalYuan)) cheapest = x;
-    }
-  }
+
   const rowsHtml = rows
     .map((x) => {
       if (!x.ok) {
         return `<div class="region-row fail"><span class="region-name">${esc(x.region)}</span><span class="region-price dim">查询失败</span></div>`;
       }
-      const isMin = cheapest && x.ok && x.cc === cheapest.cc;
       const tag = x.isFree
         ? '<span class="region-badge free">免费</span>'
         : x.isUnavailable
@@ -8990,19 +8994,39 @@ async function loadStoreRegionPrices(appId) {
           : x.discountPercent > 0
             ? `<span class="region-badge cut">-${x.discountPercent}%</span>`
             : '';
-      return `<div class="region-row${isMin ? ' min' : ''}">
+      const cnyText = x.cny != null && !x.isFree && !x.isUnavailable ? `¥${x.cny.toFixed(2)}` : '';
+      return `<div class="region-row">
         <span class="region-name">${esc(x.region)}</span>
-        <span class="region-currency">${esc(x.currency || '')}</span>
         <span class="region-price">${esc(x.finalFormatted)}${tag}</span>
+        <span class="region-cny">${cnyText}</span>
       </div>`;
     })
     .join('');
 
+  // 史低行（CheapShark 跨店，USD → 人民币）
+  let historyHtml = '';
+  if (history && history.everUsd != null) {
+    const when = history.everAt ? new Date(history.everAt).toLocaleDateString('zh-CN') : '';
+    const cny = history.everCny != null ? ` ≈ ¥${history.everCny.toFixed(2)}` : '';
+    historyHtml = `<div class="region-history">
+      <span class="rh-label">史低</span>
+      <span class="rh-value">$${history.everUsd.toFixed(2)}${cny}</span>
+      <span class="rh-sub">${when ? `${when} · ` : ''}跨店历史最低（CheapShark）</span>
+    </div>`;
+  } else if (history && history.currentLowestUsd != null) {
+    const cny = history.currentLowestCny != null ? ` ≈ ¥${history.currentLowestCny.toFixed(2)}` : '';
+    historyHtml = `<div class="region-history">
+      <span class="rh-label">史低</span>
+      <span class="rh-value dim">暂无打折记录</span>
+      <span class="rh-sub">当前跨店最低 $${history.currentLowestUsd.toFixed(2)}${cny}（CheapShark）</span>
+    </div>`;
+  }
+
   const note = [
-    '各区价格为当地商店页原币标价（未折算人民币）',
+    fxNote ? `人民币换算按${fxNote}` : '',
     at ? ` · 更新于 ${new Date(at).toLocaleTimeString('zh-CN')}` : '',
   ].join('');
-  box.innerHTML = `<div class="region-grid">${rowsHtml}</div><div class="region-note">${note}。想买最低价区请自行确认账号区服与支付方式限制。</div>`;
+  box.innerHTML = `${historyHtml}<div class="region-grid">${rowsHtml}</div><div class="region-note">${note}。各区价格仅供比价参考，购买请确认账号区服与支付方式限制。</div>`;
 }
 
 /** 查询结果里顺带显示：这个游戏在我库存里有多少、挂了几件、成本多少 */
