@@ -18,7 +18,7 @@
  * （本地调试允许 http://127.0.0.1）。
  */
 
-const { app, shell } = require('electron');
+const { app, shell, net, session } = require('electron');
 const { EventEmitter } = require('events');
 const store = require('./store');
 const logger = require('./logger');
@@ -46,6 +46,62 @@ function withTimeout(promise, ms, label) {
     );
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+}
+
+/** 网络类错误的人话提示（GitHub 下载在很多网络下直连不通，指向代理设置） */
+function netErrMsg(e) {
+  const raw = (e && e.message) || String(e || '网络错误');
+  if (/ERR_|timeout|timed out|aborted|fetch failed|network|reset/i.test(raw)) {
+    return '连不上 GitHub（检查更新走 api.github.com，下载安装包走 github.com，部分网络直连不通）。请开启 Clash / v2rayN 等代理后重试；软件已自动探测本机代理，也可在「设置 → 登录窗口代理」手动填写。';
+  }
+  return raw;
+}
+
+/* ----------------------------------------------------------------------------
+ * 更新专用网络栈：走 Electron net.fetch（Chromium 网络栈），
+ * ① 配置了登录代理 → 走它；② 否则跟随系统代理（Clash 开系统代理即可用）；
+ * ③ 系统代理也不通时自动探测本机常见端口，找到可用代理就启用并记住。
+ * 为什么不用 Node 的 fetch：它不认 Windows 系统代理，也不认 session.setProxy。
+ * -------------------------------------------------------------------------- */
+let updaterSes = null;
+
+async function getUpdaterSession(proxy) {
+  if (!updaterSes) updaterSes = session.fromPartition('persist:steamdesk-updater');
+  try {
+    if (proxy) await updaterSes.setProxy({ mode: 'fixed_servers', proxyRules: proxy });
+    else await updaterSes.setProxy({ mode: 'system' });
+  } catch { /* setProxy 失败不阻塞请求 */ }
+  return updaterSes;
+}
+
+async function updaterFetch(url, opts = {}) {
+  const ses = await getUpdaterSession(String(store.getSettings().loginProxy || '').trim());
+  // ①/② 配置代理或跟随系统
+  try {
+    return await net.fetch(url, { ...opts, session: ses });
+  } catch (e) {
+    const configured = String(store.getSettings().loginProxy || '').trim();
+    // ③ 自动探测本机代理：只在没配置代理时尝试，找到就启用并记住
+    if (configured) throw new Error(netErrMsg(e));
+    let det = null;
+    try {
+      det = await require('./proxyDetect').detectProxy();
+    } catch { /* 探测失败按直连报错 */ }
+    if (det && det.found) {
+      try {
+        const ses2 = await getUpdaterSession(det.proxy);
+        const res = await net.fetch(url, { ...opts, session: ses2 });
+        try {
+          store.setSettings({ loginProxy: det.proxy });
+        } catch { /* 记不住只影响下次 */ }
+        logger.info('更新请求自动启用本机代理', { proxy: det.proxy });
+        return res;
+      } catch (e2) {
+        throw new Error(netErrMsg(e2));
+      }
+    }
+    throw new Error(netErrMsg(e));
+  }
 }
 
 function norm(v) {
@@ -112,7 +168,7 @@ async function check(opts = {}) {
   }
   const headers = { 'User-Agent': 'SteamDesk-Updater' };
   if (/api\.github\.com/.test(url)) headers.Accept = 'application/vnd.github+json';
-  const res = await withTimeout(fetch(url, { redirect: 'follow', headers }), TIMEOUT_MS, '检查更新');
+  const res = await withTimeout(updaterFetch(url, { redirect: 'follow', headers }), TIMEOUT_MS, '检查更新');
   /* GitHub 仓库还没有发布 release 时返回 404：不算错误，只是“没有可检查的新版本” */
   if (res.status === 404 && /api\.github\.com/.test(url)) {
     const result = {
@@ -215,10 +271,12 @@ async function downloadUpdate(url) {
   const file = path.join(dir, name);
   if (fs.existsSync(file)) fs.rmSync(file, { force: true });
 
-  const res = await fetch(target, {
+  const res = await updaterFetch(target, {
     headers: { 'User-Agent': 'SteamDesk-Updater' },
     redirect: 'follow',
     signal: AbortSignal.timeout(10 * 60 * 1000),
+  }).catch((e) => {
+    throw new Error(netErrMsg(e));
   });
   if (!res.ok) throw new Error(`下载失败 HTTP ${res.status}`);
   const total = Number(res.headers.get('content-length')) || 0;
