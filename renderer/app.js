@@ -37,6 +37,7 @@ const S = {
   libSource: 'steam',
   epicLib: { items: [], loading: false, accountId: '', at: 0, error: '', partial: false },
   gogLib: { items: [], loading: false, at: 0, error: '', linked: false },
+  ubiLib: { items: [], loading: false, at: 0, error: '' },
   logs: [],
   switching: false,
   selling: false,
@@ -6937,6 +6938,8 @@ function renderForeignLib() {
   if (!box) return;
   box.className = 'ggrid portrait';
   const src = S.libSource;
+  // Ubisoft 标签页：促销清单结构（title/image/discount），单独渲染
+  if (src === 'ubisoft') return renderUbiLib();
   const st = src === 'epic' ? S.epicLib : S.gogLib;
   const q = S.libQuery.trim().toLowerCase();
   let list = st.items || [];
@@ -6997,6 +7000,7 @@ function setLibSource(src) {
   const isSteam = src === 'steam';
   if ($('#libEpicBar')) $('#libEpicBar').style.display = src === 'epic' ? '' : 'none';
   if ($('#libGogBar')) $('#libGogBar').style.display = src === 'gog' ? '' : 'none';
+  if ($('#libUbiBar')) $('#libUbiBar').style.display = src === 'ubisoft' ? '' : 'none';
   if ($('#libFilter')) $('#libFilter').style.display = isSteam ? '' : 'none';
   if ($('#libShape')) $('#libShape').style.display = isSteam ? '' : 'none';
   if ($('#libFetchOwned')) $('#libFetchOwned').style.display = isSteam ? '' : 'none';
@@ -7017,6 +7021,16 @@ function setLibSource(src) {
     renderForeignLib();
     if (!S.epicLib.items.length && !S.epicLib.loading && (S.epic.accounts || []).length) {
       loadEpicLib();
+    }
+    return;
+  }
+  if (src === 'ubisoft') {
+    $('#libSub').textContent = S.ubiLib.items.length
+      ? `Ubisoft 促销 · ${S.ubiLib.items.length} 款在售`
+      : '正在读取 Ubisoft（Uplay）促销清单…';
+    renderForeignLib();
+    if (!S.ubiLib.items.length && !S.ubiLib.loading) {
+      loadUbiLib();
     }
     return;
   }
@@ -7067,6 +7081,81 @@ async function loadGogStatus() {
   S.gogLib.linked = !!(r.ok && r.data && r.data.linked);
   renderGogBar();
   return S.gogLib.linked;
+}
+
+/* ------------------------- Ubisoft（Uplay）促销清单 ------------------------- */
+
+/** 渲染 Ubisoft 促销卡：横版封面 + 名称 + 折扣价 + 打开商店页 */
+function renderUbiLib() {
+  const box = $('#libBody');
+  if (!box) return;
+  const st = S.ubiLib;
+  const q = S.libQuery.trim().toLowerCase();
+  let list = st.items || [];
+  if (q) list = list.filter((g) => String(g.title || '').toLowerCase().includes(q));
+
+  if (st.loading && !list.length) {
+    box.innerHTML = '<div class="empty" style="grid-column:1/-1"><b>正在读取 Ubisoft（Uplay）促销清单…</b>数据来自 CheapShark 聚合接口，美元报价。</div>';
+    return;
+  }
+  if (!list.length) {
+    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>${st.error ? '读取失败' : '暂时没有促销条目'}</b>${
+      st.error || 'Ubisoft 商店当前没有符合条件的折扣商品；也可能是聚合源暂时抽风，稍后点「刷新」再试。'
+    }</div>`;
+    return;
+  }
+
+  box.innerHTML = list.slice(0, LIB_CAP).map((g) => {
+    const fb = String(g.title || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
+    const zh = g.steamAppId ? zhOfApp(g.steamAppId) : '';
+    return `<div class="gcard portrait" title="${esc(g.title)}">
+      <div class="cov">
+        ${g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />` : ''}
+        <span class="covfb">${esc(fb)}</span>
+        <span class="plat">Ubisoft</span>
+      </div>
+      <div class="ib2">
+        <div class="nm">${esc(g.title)}</div>
+        ${zh ? `<div class="nm-zh" title="${esc(zh)}">${esc(zh)}</div>` : ''}
+        <div class="meta">
+          <span class="gtag">Ubisoft Connect</span>
+          <span class="gtag" style="color:var(--green)">-${g.discount}%</span>
+        </div>
+      </div>
+      <div class="gact-row">
+        <button class="btn s gact-btn" data-store-url="${esc(g.url)}">打开商店页</button>
+      </div>
+    </div>`;
+  }).join('');
+  lazyPaintCovers(box);
+  updateLibCount(list.length);
+}
+
+async function loadUbiLib(force) {
+  const st = S.ubiLib;
+  if (st.loading) return;
+  st.loading = true;
+  st.error = '';
+  $('#libSub').textContent = '正在读取 Ubisoft（Uplay）促销清单…';
+  renderUbiLib();
+  const r = await call(SD.store.ubiList(!!force), { noLog: true, silent: true });
+  st.loading = false;
+  if (r.ok && r.data && Array.isArray(r.data.items)) {
+    st.items = r.data.items;
+    st.at = r.data.at || Date.now();
+    $('#libSub').textContent = `Ubisoft 促销 · ${st.items.length} 款在售`;
+  } else {
+    st.error = r.message || '读取失败';
+    $('#libSub').textContent = 'Ubisoft 促销读取失败';
+    toast(st.error, true);
+  }
+  renderUbiLib();
+  // 中文译名：有 Steam AppID 的走词典/缓存
+  ensureAppZh((st.items || []).map((g) => g.steamAppId).filter(Boolean))
+    .then((hasNew) => {
+      if (hasNew) renderUbiLib();
+    })
+    .catch(() => {});
 }
 
 async function loadGogLib() {
@@ -7125,6 +7214,7 @@ if ($('#libSource')) {
     };
   }
   if ($('#libGogFetch')) $('#libGogFetch').onclick = () => loadGogLib();
+  if ($('#libUbiRefresh')) $('#libUbiRefresh').onclick = () => loadUbiLib(true);
 }
 
 if ($('#libBody')) {
@@ -9244,6 +9334,7 @@ const DEAL_PLAT = {
   epic: ['Epic', 'epic'],
   humble: ['Humble', 'humble'],
   fanatical: ['Fanatical', 'fanatical'],
+  ubisoft: ['Ubisoft', 'ubisoft'],
 };
 
 function dealEndsText(ts) {
@@ -9305,7 +9396,7 @@ function renderDeals() {
   // Steam 的首页特惠放前面，GOG 折扣榜跟在后面，其他平台最后；各自内部已按折扣排好
   const all = [...(dealData.steam || []), ...(dealData.gog || []), ...(dealData.other || [])];
   let list = all;
-  if (dealFilter === 'gog' || dealFilter === 'steam' || dealFilter === 'epic') {
+  if (dealFilter === 'gog' || dealFilter === 'steam' || dealFilter === 'epic' || dealFilter === 'ubisoft') {
     list = all.filter((x) => x.source === dealFilter);
   } else if (dealFilter === 'other') {
     list = all.filter((x) => x.source === 'humble' || x.source === 'fanatical');
@@ -9328,7 +9419,8 @@ function renderDeals() {
       `Steam ${(dealData.steam || []).length}`,
       `GOG ${(dealData.gog || []).length}`,
       `Epic ${other.filter((x) => x.source === 'epic').length}`,
-      `其他 ${other.filter((x) => x.source !== 'epic').length}`,
+      `Ubisoft ${other.filter((x) => x.source === 'ubisoft').length}`,
+      `其他 ${other.filter((x) => x.source !== 'epic' && x.source !== 'ubisoft').length}`,
       `区服 ${dealData.region || 'CN'}`,
     ];
     if (dealWishStatus === 'fail') bits.push('愿望单未公开，未标记');
@@ -9728,7 +9820,7 @@ document.addEventListener('click', async (e) => {
  * 数据在主进程里拉（Epic 官方接口 + GamerPower 聚合），这里只管展示。
  * 只做发现和跳转，不代领：三个平台的领取都要各自的登录态和结账流程。
  */
-const FREE_PLAT = { epic: 'Epic', steam: 'Steam', gog: 'GOG' };
+const FREE_PLAT = { epic: 'Epic', steam: 'Steam', gog: 'GOG', ubisoft: 'Ubisoft' };
 const FREE_TYPE = { DLC: '资料片', 'Early Access': '抢先体验', Beta: '测试', Playtest: '测试', Loot: '道具' };
 
 /** 截止时间写成「截止 11月13日 00:00」，和商店页的写法一致 */

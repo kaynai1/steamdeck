@@ -127,8 +127,9 @@ async function gogDeals(cfg) {
 }
 
 /**
- * Epic / Humble / Fanatical：通过 CheapShark 的公开聚合接口取折扣。
+ * Epic / Humble / Fanatical / Ubisoft(Uplay)：通过 CheapShark 的公开聚合接口取折扣。
  * Epic 自己的 GraphQL 被 Cloudflare 拦（Node 和 Electron 都是 403），
+ * Ubisoft 官方商店接口已停用（410），CheapShark 的 Uplay 源（storeID=13）数据可用；
  * CheapShark 的报价是美元，卡片上会标明。
  */
 async function cheapSharkDeals() {
@@ -136,6 +137,7 @@ async function cheapSharkDeals() {
     ['25', 'epic', 24],
     ['11', 'humble', 10],
     ['15', 'fanatical', 10],
+    ['13', 'ubisoft', 14],
   ];
   // CheapShark 不区分本体和 DLC/升级包，按标题把明显不是游戏本体的条目挡掉
   const NON_GAME = /(^|[\s:(])(upgrade|dlc|season pass|soundtrack|expansion|add-?on|beta)([\s:)]|$)/i;

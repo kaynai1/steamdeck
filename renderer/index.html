@@ -408,6 +408,7 @@
               <button class="tab on" data-src="steam">Steam</button>
               <button class="tab" data-src="epic">Epic</button>
               <button class="tab" data-src="gog">GOG</button>
+              <button class="tab" data-src="ubisoft">Ubisoft</button>
             </div>
             <button class="btn s" id="libFetchOwned" title="登录后自动识别全部已拥有游戏（含未安装），无需手动填 API Key">拉取全部已拥有游戏</button>
             <button class="btn p" id="libScan">扫描游戏库</button>
@@ -426,6 +427,12 @@
           <button class="btn p" id="libGogFetch" style="display:none">拉取 GOG 库</button>
           <span class="sp"></span>
           <span class="dim2">登录用内嵌窗口，Cookie 只留在本机</span>
+        </div>
+        <div class="tool" id="libUbiBar" style="display:none">
+          <span class="lb">Ubisoft 促销清单</span>
+          <button class="btn p" id="libUbiRefresh">刷新 Ubisoft 促销</button>
+          <span class="sp"></span>
+          <span class="dim2">数据来自 CheapShark 聚合（Uplay 商店，美元报价），无需登录 Ubisoft 账号；游戏库列表与领取见每日促销页的 Ubisoft 标签</span>
         </div>
         <div class="tool" id="libSteamTool">
           <div class="tabs" id="libFilter"></div>
@@ -512,6 +519,7 @@
               <button class="tab" data-df="steam">Steam</button>
               <button class="tab" data-df="gog">GOG</button>
               <button class="tab" data-df="epic">Epic</button>
+              <button class="tab" data-df="ubisoft">Ubisoft</button>
               <button class="tab" data-df="other">其他</button>
             </div>
             <label class="free-only"><input type="checkbox" id="dealHideOwned" /> 隐藏我已有的</label>
@@ -532,6 +540,7 @@
               <button class="tab" data-fp="epic">Epic</button>
               <button class="tab" data-fp="steam">Steam</button>
               <button class="tab" data-fp="gog">GOG</button>
+              <button class="tab" data-fp="ubisoft" title="Ubisoft 限免活动出现时会自动列出（无活动时不占位）">Ubisoft</button>
             </div>
             <label class="free-only"><input type="checkbox" id="freeGameOnly"> 只看完整游戏</label>
             <button class="btn s" id="freeClaimAll">领取全部 Epic</button>
@@ -866,7 +875,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.73","url":"https://.../SteamDesk-2.6.73-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.73，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.74","url":"https://.../SteamDesk-2.6.74-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.74，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1023,6 +1032,9 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.74 更新特性：</b><br>
+        1. <b>Ubisoft 平台接入</b>：每日促销新增 Ubisoft 标签（Watch Dogs / Far Cry / 刺客信条等育碧折扣，聚合自 CheapShark Uplay 源）；游戏库新增 Ubisoft 标签页（促销清单，无需登录）；免费领取接入 Ubisoft 限免活动源（有活动时自动出现）；<br>
+        2. <b>修复热门卡片封面未铺满</b>：封面区域改为 Steam 官方 460:215 固定纵横比，卡片高度统一，封面完整铺开不再被裁切；<br>
         <b>v2.6.73 更新特性：</b><br>
         1. <b>修复新游戏封面无法显示</b>：2025 年后上架的游戏封面改存在带 hash 的新目录（老 CDN 的固定文件名是 404）；现在封面加载失败时自动向商店接口取权威地址重新拉取（Chromium 网络栈，跟随系统代理），新游戏封面正常显示；封面域名优先级同步更新；<br>
         <b>v2.6.72 更新特性：</b><br>

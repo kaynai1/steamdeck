@@ -261,6 +261,7 @@ contextBridge.exposeInMainWorld('api', {
     priceHistory: () => invoke('store:priceHistory'),
     playing: () => invoke('store:playing'),
     dailyDeals: (force) => invoke('store:dailyDeals', force),
+    ubiList: (force) => invoke('ubi:list', force),
     wishlistList: () => invoke('store:wishlistList'),
     wishlistPrices: (items) => invoke('store:wishlistPrices', items),
     idleWatchAdd: (appId, name) => invoke('store:idleWatchAdd', { appId, name }),

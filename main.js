@@ -1170,6 +1170,9 @@ ipcMain.handle('store:priceHistory', wrap(async () => priceHistory.series()));
 ipcMain.handle('store:playing', wrap(async () => require('./main/playing').current()));
 ipcMain.handle('store:dailyDeals', wrap(async (force) => require('./main/dailyDeals').all({ force: !!force })));
 
+// Ubisoft（Uplay）促销清单：游戏库 Ubisoft 标签页用
+ipcMain.handle('ubi:list', wrap(async (force) => require('./main/ubiDeals').list(!!force)));
+
 ipcMain.handle('store:wishlistList', wrap(async () => require('./main/wishlist').list()));
 ipcMain.handle('store:wishlistPrices', wrap(async (items) => require('./main/wishlist').prices(items)));
 ipcMain.handle('store:idleWatchAdd', wrap(async (p) =>

@@ -257,6 +257,13 @@ async function fetchAll() {
         errors.push({ platform: 'gog', message: errText(err) });
         return [];
       }),
+    // Ubisoft 限免活动（GamerPower ubisoft 源）：平时返回 201/空数组，有活动时自动出现
+    getJsonRetry('https://www.gamerpower.com/api/giveaways?platform=ubisoft', 15000)
+      .then((j) => parseGamerPower(j, 'ubisoft'))
+      .catch(() => {
+        /* Ubisoft 平时无活动（接口返回 201 status=0），不算错误，静默跳过 */
+        return [];
+      }),
   ];
   const groups = await Promise.all(jobs);
   const items = mergeItems(groups);

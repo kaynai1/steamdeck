@@ -1404,6 +1404,7 @@ body:not(.light) .badge-skin { color: #E57373; }
 .fg-plat.gog { background: rgba(74,30,90,.88); }
 .fg-plat.humble { background: rgba(160,40,40,.86); }
 .fg-plat.fanatical { background: rgba(150,70,20,.88); }
+.fg-plat.ubisoft { background: rgba(16,96,168,.88); }
 /* 目标价输入：只在 Steam 条目上出现 */
 .fg-target {
   display: flex; align-items: center; gap: 6px;
@@ -2472,6 +2473,9 @@ input:focus, select:focus, textarea:focus {
   flex: none;
   background: var(--subtle-card);
   border-right: 1px solid var(--line);
+  /* 固定纵横比（Steam 官方 header 460:215），卡片高度统一、封面永远铺满不裁切漂移 */
+  aspect-ratio: 460 / 215;
+  align-self: stretch;
 }
 .idle-game-card.cover .ig-cov img {
   position: absolute;
