@@ -184,6 +184,71 @@ function openDownload(url) {
   return { opened: true, url: target };
 }
 
+/**
+ * 下载更新安装包到系统「下载」目录并直接启动安装程序。
+ * 下载完自动运行 setup exe（NSIS 安装器自己会引导安装）；
+ * portable 版（zip/exe 免安装）则打开所在文件夹。
+ * 返回 { path, launched, bytes }。
+ */
+const fs = require('fs');
+const path = require('path');
+
+async function downloadUpdate(url) {
+  const target = String(url || (last && last.url) || '').trim();
+  if (!target) throw new Error('没有可用的下载地址');
+  if (!allowedUrl(target)) throw new Error('下载地址必须是 https 地址');
+  if (!/\.(exe|zip)$/i.test(target)) {
+    throw new Error('下载地址不是安装包（.exe/.zip），请在浏览器打开该链接手动下载');
+  }
+  const dir = app.getPath('downloads') || app.getPath('home');
+  const name = `SteamDesk-${(last && norm(last.latest)) || Date.now()}-update${path.extname(target).toLowerCase()}`;
+  const file = path.join(dir, name);
+  if (fs.existsSync(file)) fs.rmSync(file, { force: true });
+
+  const res = await fetch(target, {
+    headers: { 'User-Agent': 'SteamDesk-Updater' },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(10 * 60 * 1000),
+  });
+  if (!res.ok) throw new Error(`下载失败 HTTP ${res.status}`);
+  const total = Number(res.headers.get('content-length')) || 0;
+  let got = 0;
+  const out = fs.createWriteStream(file);
+  // 流式写入：76MB 的安装包不能一次性进内存
+  await new Promise((resolve, reject) => {
+    const stream = require('stream');
+    const reader = res.body.getReader ? null : null;
+    if (res.body && typeof res.body.pipe === 'function') {
+      res.body.pipe(out);
+      res.body.on('error', reject);
+      out.on('error', reject);
+      out.on('finish', () => resolve());
+      return;
+    }
+    // undici fetch：用 reader 手动写入
+    (async () => {
+      try {
+        const rd = res.body.getReader();
+        for (;;) {
+          const { done, value } = await rd.read();
+          if (done) break;
+          got += value.length;
+          out.write(value);
+        }
+        out.end(resolve);
+      } catch (e) {
+        reject(e);
+      }
+    })();
+  });
+  logger.info('更新安装包已下载', { file, bytes: got || total });
+
+  const launched = /\.exe$/i.test(name)
+    ? shell.openPath(file).then((r) => r === '').catch(() => false)
+    : shell.showItemInFolder(file);
+  return { path: file, bytes: got || total, launched: await Promise.resolve(launched) };
+}
+
 function getState() {
   const s = store.getSettings();
   return {
@@ -197,4 +262,4 @@ function getState() {
   };
 }
 
-module.exports = { check, autoCheck, openDownload, getState, compare };
+module.exports = { check, autoCheck, openDownload, downloadUpdate, getState, compare };

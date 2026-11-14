@@ -187,7 +187,7 @@ function closeWin() {
  * 系统代理端口 —— 所以开了加速器仍然会被重置。需要的是一个提供
  * 本地代理端口的全局代理工具，在「设置 → 登录窗口代理」里填写。
  */
-function loginErrorPageHtml(errorCode, errorDescription) {
+function loginErrorPageHtml(errorCode, errorDescription, extraNote = '') {
   const safeMsg = `${errorDescription || '连接失败'}（错误码 ${errorCode || '未知'}）`;
   return `
     <!DOCTYPE html>
@@ -200,10 +200,11 @@ function loginErrorPageHtml(errorCode, errorDescription) {
         窗口里加载的是 Steam 官方登录页（steamcommunity.com）。<br>
         当前网络连不上这个地址：${safeMsg}
       </p>
+      ${extraNote ? `<div style="font-size:12px;color:#E8D48A;line-height:1.75;max-width:430px;margin:0 auto 12px;text-align:left;background:rgba(224,166,60,.08);border:1px solid #8A6E2E;border-radius:10px;padding:12px 14px;">${extraNote}</div>` : ''}
       <div style="font-size:12px;color:#C9D6E2;line-height:1.75;max-width:430px;margin:0 auto 12px;text-align:left;background:rgba(255,255,255,.05);border:1px solid #3D5165;border-radius:10px;padding:12px 14px;">
         <b style="color:#fff">关于加速器的重要说明</b><br>
         UU / 雷神这类游戏加速器只加速 Steam 客户端（steam.exe）进程，<b>不会代理本软件的登录窗口</b>，所以开了加速器仍然连不上。<br>
-        请改用提供<b>本地代理端口</b>的全局代理工具（如 Clash、v2rayN），然后到<b>「设置 → 登录窗口代理」</b>填入端口地址（如 <b>127.0.0.1:7890</b>），再回到这里点「重新加载」。
+        请改用提供<b>本地代理端口</b>的全局代理工具（如 Clash、v2rayN），填入「设置 → 登录窗口代理」后点「重新加载」。也可以用旁边的「检测代理」自动探测。
       </div>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
         <button onclick="location.href='https://steamcommunity.com/login/home/?goto=market'"
@@ -283,21 +284,51 @@ async function openLogin(steamIdHint) {
     }, 1200);
 
     // ★ 加载失败 / 超时的兜底：以前这里什么都不做，网络不通就是一片黑屏 ★
+    // ★ 2.6.66 再进一步：失败时先自动探测本机代理，找到了就自动启用并重试一次 ★
     let loaded = false;
     let failHandled = false;
+    let proxyAutoTried = false;
     let slowTimer = null;
-    const showNetError = (errorCode, errorDescription) => {
+
+    const showNetError = async (errorCode, errorDescription, extraNote = '') => {
       if (failHandled || !loginWin || loginWin.isDestroyed()) return;
       failHandled = true;
       clearTimeout(slowTimer);
+      const html = loginErrorPageHtml(errorCode, errorDescription, extraNote);
       loginWin
-        .loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loginErrorPageHtml(errorCode, errorDescription))}`)
+        .loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
         .catch(() => {});
+    };
+
+    /** 失败后的第一反应：探测本机代理，命中就自动启用并重载登录页 */
+    const autoProxyThen = async (errorCode, errorDescription) => {
+      if (failHandled || !loginWin || loginWin.isDestroyed()) return;
+      if (!store.getSettings().loginProxy && !proxyAutoTried) {
+        proxyAutoTried = true;
+        let detected = null;
+        try {
+          detected = await require('./proxyDetect').detectProxy();
+        } catch {
+          detected = null;
+        }
+        if (detected && detected.found) {
+          store.setSettings({ loginProxy: detected.proxy });
+          await applyProxy();
+          logger.info('登录失败，已自动启用本机代理并重试', { proxy: detected.proxy });
+          loginWin.loadURL(LOGIN_URL).catch(() => {});
+          return; // 重载成功与否由事件再驱动
+        }
+        // 没探测到可用代理 → 走错误引导页（说明里带上探测结果）
+        await showNetError(errorCode, errorDescription, '已自动探测本机常见代理端口（Clash / v2rayN 等），未发现可用代理；如果你正在运行代理工具，请确认它的端口后到「设置 → 登录窗口代理」填写。');
+        return;
+      }
+      // 已配置代理或已自动试过 → 直接错误页
+      await showNetError(errorCode, errorDescription);
     };
 
     loginWin.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
       if (errorCode === -3) return; // 忽略 ABORTED（主动取消/跳转打断）
-      showNetError(errorCode, errorDescription);
+      autoProxyThen(errorCode, errorDescription);
     });
     // 从错误页点「重新加载」后允许再次检测失败
     loginWin.webContents.on('did-navigate', (_e, url) => {
@@ -305,7 +336,7 @@ async function openLogin(steamIdHint) {
         failHandled = false;
         clearTimeout(slowTimer);
         slowTimer = setTimeout(() => {
-          if (!loaded) showNetError('TIMEOUT', '30 秒内没有加载完成');
+          if (!loaded) autoProxyThen('TIMEOUT', '30 秒内没有加载完成');
         }, 30000);
       }
     });
@@ -315,11 +346,11 @@ async function openLogin(steamIdHint) {
     });
 
     loginWin.loadURL(LOGIN_URL).catch((err) => {
-      showNetError(err && err.code ? err.code : 'LOAD_FAIL', (err && err.message) || '页面加载失败');
+      autoProxyThen(err && err.code ? err.code : 'LOAD_FAIL', (err && err.message) || '页面加载失败');
     });
     // 首次加载的超时提示（30 秒没动静多半是连不上）
     slowTimer = setTimeout(() => {
-      if (!loaded) showNetError('TIMEOUT', '30 秒内没有加载完成');
+      if (!loaded) autoProxyThen('TIMEOUT', '30 秒内没有加载完成');
     }, 30000);
 
     // 辅助判定：页面跳转后立刻查一次，缩短成功到提示的延迟

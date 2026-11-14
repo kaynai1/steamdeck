@@ -45,6 +45,17 @@ contextBridge.exposeInMainWorld('api', {
     state: () => invoke('update:state'),
     check: () => invoke('update:check'),
     open: (url) => invoke('update:open', url),
+    download: (url) => invoke('update:download', url),
+  },
+  net: {
+    detectProxy: () => invoke('net:detectProxy'),
+  },
+  cards: {
+    progress: () => invoke('cards:progress'),
+  },
+  stats: {
+    popular: () => invoke('stats:popular'),
+    lookup: (term) => invoke('stats:lookup', term),
   },
   ladder: {
     state: () => invoke('ladder:state'),

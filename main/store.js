@@ -96,6 +96,9 @@ const DEFAULTS = {
   updateLastVersion: '',
   // 登录窗口 / Steam 社区请求代理（steamcommunity.com 直连不通时填，如 127.0.0.1:7890）
   loginProxy: '',
+  // 库存估值缓存（行情刷新时写入，供 QQ「查估值」与趋势补点用）
+  lastInvValueYuan: 0,
+  lastInvValueAt: 0,
   // 窗口位置与大小（关闭/拖动时自动保存）
   winBounds: null,
   // 首次使用向导是否已完成（完成后不再自动弹出）

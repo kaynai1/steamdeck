@@ -395,8 +395,11 @@ const BIND_KEYWORD = '绑定';
 const HELP_TEXT = [
   '可用指令：',
   '· 查仓库 — 我的饰品仓库概况',
+  '· 查估值 — 库存最近一次估值与挂单情况',
+  '· 查挂单 — 我当前在卖的东西',
   '· 查游戏 游戏名 — 在我的游戏库里搜索',
-  '· 查价 游戏名或AppID — Steam 商店价格与折扣',
+  '· 查价 游戏名或AppID — Steam 商店价格与各区对比可到软件里看',
+  '· 挂卡进度 — 还能掉卡牌的游戏与剩余张数',
   '· 绑定 — 重新确认推送绑定',
 ].join('\n');
 
@@ -495,6 +498,90 @@ async function runCommand(text, reply) {
     return true;
   }
 
+  /* 查挂单：当前账号在售的挂单概况 */
+  if (/^(查挂单|挂单|查在售|查卖出挂单)$/.test(cmd)) {
+    await reply('正在同步你的市场挂单，稍等…');
+    try {
+      const sess = await require('./session').getSession();
+      const sid = sess && sess.steamId;
+      if (!sid) {
+        await reply('还没有可用的网页登录会话，先在软件里「网页登录获取Cookie」。');
+        return true;
+      }
+      const r = await require('./seller').fetchMyListings(sid, null);
+      const entries = Object.entries((r && r.map) || {}).filter(([k, v]) => !k.startsWith('_') && v && v.listingId);
+      if (!entries.length) {
+        await reply('当前没有在售挂单。');
+        return true;
+      }
+      // 按游戏聚合 + 最老挂单
+      const nowSec = Math.floor(Date.now() / 1000);
+      const byApp = new Map();
+      let oldest = 0;
+      for (const [, it] of entries) {
+        const k = String(it.appId || '753');
+        byApp.set(k, (byApp.get(k) || 0) + 1);
+        const age = nowSec - (Number(it.createdAt) || nowSec);
+        if (age > oldest) oldest = age;
+      }
+      const nameMap = require('./appRegistry');
+      const top = [...byApp.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([k, n]) => `${nameMap.nameOf(Number(k)) || (k === '753' ? 'Steam社区物品' : `App ${k}`)} ${n} 件`)
+        .join('、');
+      await reply(
+        `【市场挂单】共 ${entries.length} 件在售\n` +
+          `分布：${top}${byApp.size > 3 ? ` 等 ${byApp.size} 个游戏` : ''}` +
+          (oldest > 86400 ? `\n最久已挂 ${Math.floor(oldest / 86400)} 天（可考虑降价）` : '')
+      );
+    } catch (e) {
+      await reply(`查挂单失败：${(e && e.message) || '未知错误'}`);
+    }
+    return true;
+  }
+
+  /* 查估值：最近一次库存估值 + 挂单数（用软件里算过的缓存值，秒回） */
+  if (/^(查估值|查库存估值|估值)$/.test(cmd)) {
+    const s = store.getSettings();
+    const v = Number(s.lastInvValueYuan) || 0;
+    const at = Number(s.lastInvValueAt) || 0;
+    if (!v) {
+      await reply('还没有估值记录：在软件「饰品仓库」里拉一次库存并查价后，这里就能查了。');
+      return true;
+    }
+    const age = at ? Math.round((Date.now() - at) / 60000) : 0;
+    const ageText = age < 60 ? `${age} 分钟前` : age < 1440 ? `${Math.floor(age / 60)} 小时前` : `${Math.floor(age / 1440)} 天前`;
+    await reply(`【库存估值】≈ ¥${v.toFixed(2)}（${ageText}计算）\n如需最新估值，在软件里刷新一次行情。`);
+    return true;
+  }
+
+  /* 挂卡进度 */
+  if (/^(挂卡|查挂卡|挂卡进度|卡片进度)$/.test(cmd)) {
+    await reply('正在读取徽章页挂卡进度，稍等…');
+    try {
+      const r = await require('./cardsIdle').progress();
+      if (!r || !r.loggedIn) {
+        await reply('还没有 Steam 网页登录会话，先在软件里「网页登录获取Cookie」。');
+        return true;
+      }
+      const games = (r.games || []).slice(0, 8);
+      if (!games.length) {
+        await reply('当前没有可掉落的卡牌（都掉完啦）。');
+        return true;
+      }
+      const lines = games.map((g) => `· ${g.name}：剩 ${g.drops} 张${g.halfSpeed ? '（已过 2 小时，掉率减半）' : ''}`);
+      await reply(
+        `【挂卡进度】${r.games.length} 个游戏共 ${r.totalDrops} 张卡可掉\n` +
+          lines.join('\n') +
+          (r.games.length > 8 ? `\n…另 ${r.games.length - 8} 个游戏` : '')
+      );
+    } catch (e) {
+      await reply(`查挂卡失败：${(e && e.message) || '未知错误'}`);
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -507,8 +594,8 @@ async function handleEvent(t, d) {
     const prev = readBind('c2c');
     const isNew = !prev || prev.openid !== openid;
     saveBind('c2c', { type: 'c2c', openid, lastMsgId: msgId, lastMsgAt: Date.now() });
-    // 查询指令优先处理
-    if (/^(帮助|help|指令|命令|查)/i.test(content)) {
+    // 查询指令优先处理（查…/挂卡/挂单/估值等）
+    if (/^(帮助|help|指令|命令|查|挂|估)/i.test(content)) {
       const handled = await runCommand(content, (text) => replyC2c(openid, msgId, text));
       if (handled) return;
     }
@@ -528,7 +615,7 @@ async function handleEvent(t, d) {
     const prev = readBind('group');
     const isNew = !prev || prev.openid !== groupOpenid;
     saveBind('group', { type: 'group', openid: groupOpenid, lastMsgId: msgId, lastMsgAt: Date.now() });
-    if (/^(帮助|help|指令|命令|查)/i.test(content)) {
+    if (/^(帮助|help|指令|命令|查|挂|估)/i.test(content)) {
       const handled = await runCommand(content, (text) => replyGroup(groupOpenid, msgId, text));
       if (handled) return;
     }

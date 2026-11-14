@@ -2815,3 +2815,55 @@ input[type=text], input[type=number], input[type=password], select, textarea {
 .region-badge.free { color: #0A2413; background: rgba(90, 190, 120, .92); }
 .region-badge.none { color: var(--muted); background: var(--badge-bg); }
 .region-badge.cut { color: #fff; background: var(--red); }
+
+/* ============================================================
+   2.6.66 Steam 挂卡 / 游戏统计 两个新页面
+   ============================================================ */
+.cards-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  margin-bottom: 7px;
+  transition: border-color .12s ease;
+}
+.cards-row:hover { border-color: var(--line2); }
+.cards-main { flex: 1; min-width: 0; }
+.cards-name { font-size: 13px; font-weight: 650; color: var(--text); display: flex; align-items: center; gap: 7px; }
+.cards-sub { font-size: 11px; color: var(--dim); margin-top: 3px; }
+.cards-drops { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cards-drops b { font-size: 15px; color: var(--green); font-weight: 700; margin: 0 2px; }
+.cards-actions { flex: none; display: flex; gap: 7px; }
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin-bottom: 5px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  transition: border-color .12s ease;
+}
+.stats-row:hover { border-color: var(--line2); }
+.stats-row.fail { opacity: .7; }
+.stats-rank { flex: none; width: 26px; text-align: center; font-size: 12px; font-weight: 700; color: var(--dim); font-variant-numeric: tabular-nums; }
+.stats-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats-ccu { flex: none; width: 76px; text-align: right; font-size: 12.5px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.stats-actions { flex: none; display: flex; gap: 6px; }
+.stats-lookup-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--subtle-card);
+  border: 1px solid var(--line);
+}
+.stats-ccu-big { font-size: 12px; color: var(--muted); }
+.stats-ccu-big b { font-size: 19px; color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }

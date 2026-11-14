@@ -336,9 +336,168 @@ function goto(page) {
     else renderDeals();
   }
   if (page === 'free' && !S.free.loaded) loadFree({ quiet: true });
+  if (page === 'cards' && !S.cardsLoaded) loadCards();
+  if (page === 'gamestats' && !S.statsLoaded) loadStats();
 }
 
 $$('.nav').forEach((b) => b.addEventListener('click', () => goto(b.dataset.page)));
+
+/* ================= Steam 挂卡：徽章页掉卡进度 ================= */
+
+let cardsData = null;
+
+async function loadCards(opts = {}) {
+  const sub = $('#cardsSub');
+  const body = $('#cardsBody');
+  if (!body) return;
+  if (sub) sub.textContent = '读取中…';
+  const r = await call(SD.cards.progress(), { silent: true, noLog: true });
+  if (!r.ok) {
+    if (sub) sub.textContent = '读取失败';
+    body.innerHTML = `<div class="empty"><b>读取挂卡进度失败</b>${esc(r.message || '')}</div>`;
+    return;
+  }
+  const d = r.data || {};
+  S.cardsLoaded = true;
+  cardsData = d;
+  if (!d.loggedIn) {
+    if (sub) sub.textContent = '未登录';
+    body.innerHTML = `<div class="empty"><b>还没有 Steam 网页登录会话</b>先到「账号管理 → 网页登录获取Cookie」完成登录，再来读挂卡进度。</div>`;
+    return;
+  }
+  renderCards(d);
+}
+
+function renderCards(d) {
+  const sub = $('#cardsSub');
+  const body = $('#cardsBody');
+  const badge = $('#navCards');
+  if (!body) return;
+  const games = d.games || [];
+  if (badge) {
+    badge.style.display = games.length ? '' : 'none';
+    badge.textContent = d.totalDrops || 0;
+  }
+  if (!games.length) {
+    if (sub) sub.textContent = '没有可掉卡';
+    body.innerHTML = `<div class="empty"><b>当前没有可掉落的卡牌</b>徽章页上所有游戏的卡都掉完了。</div>`;
+    return;
+  }
+  if (sub) sub.textContent = `${games.length} 个游戏 · 共 ${d.totalDrops} 张卡`;
+  body.innerHTML = games
+    .map(
+      (g) => `<div class="cards-row">
+      <div class="cards-main">
+        <div class="cards-name">${esc(g.name)} <span class="gtag">AppID ${esc(String(g.appId))}</span></div>
+        <div class="cards-sub">${g.hours ? `${g.hours} 小时${g.halfSpeed ? ' · 已过 2 小时掉率减半' : ''}` : '未开始玩'}</div>
+      </div>
+      <div class="cards-drops">剩 <b>${g.drops}</b> 张</div>
+      <div class="cards-actions">
+        <button class="btn s" data-launch="${esc(String(g.appId))}">启动挂卡</button>
+        <button class="btn s" data-cards-market="${esc(String(g.appId))}" data-name="${esc(g.name)}">查卡市场</button>
+      </div>
+    </div>`
+    )
+    .join('');
+}
+
+if ($('#cardsRefresh')) $('#cardsRefresh').onclick = () => loadCards();
+if ($('#cardsBody')) {
+  $('#cardsBody').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-cards-market]');
+    if (!b) return; // data-launch 走全局启动逻辑
+    const appId = b.dataset.cardsMarket;
+    const name = b.dataset.name || `app ${appId}`;
+    await call(SD.app.openExternal(`https://steamcommunity.com/market/search?q=${encodeURIComponent(name + ' Trading Card')}`), { noLog: true, silent: true });
+  });
+}
+
+/* ================= 游戏玩家与市场统计 ================= */
+
+let statsData = null;
+
+async function loadStats(opts = {}) {
+  const sub = $('#statsSub');
+  const body = $('#statsBody');
+  if (!body) return;
+  if (sub) sub.textContent = '读取中…';
+  const r = await call(SD.stats.popular(), { silent: true, noLog: true });
+  if (!r.ok) {
+    if (sub) sub.textContent = '读取失败';
+    body.innerHTML = `<div class="empty"><b>读取在线人数失败</b>${esc(r.message || '')}<br>在线人数接口是 api.steampowered.com，如果你的网络访问它不稳定，重试或稍后再试。</div>`;
+    return;
+  }
+  S.statsLoaded = true;
+  statsData = r.data || {};
+  renderStats(statsData);
+}
+
+function fmtCcu(n) {
+  const v = Number(n) || 0;
+  if (v >= 10000) return `${(v / 10000).toFixed(1)} 万`;
+  if (v >= 1000) return `${(v / 1000).toFixed(1)} 千`;
+  return String(v);
+}
+
+function renderStats(d) {
+  const sub = $('#statsSub');
+  const body = $('#statsBody');
+  if (!body) return;
+  const rows = d.rows || [];
+  const okCount = rows.filter((x) => x.ok).length;
+  if (sub) sub.textContent = `在线榜 ${okCount}/${rows.length} · 更新 ${new Date(d.at || Date.now()).toLocaleTimeString('zh-CN')}`;
+  if (!okCount) {
+    body.innerHTML = `<div class="empty"><b>在线人数接口连不上</b>api.steampowered.com 当前不可达；网络恢复后点「刷新排行」重试。</div>`;
+    return;
+  }
+  body.innerHTML = rows
+    .map(
+      (g, i) => `<div class="stats-row${g.ok ? '' : ' fail'}">
+      <span class="stats-rank">${g.ok ? i + 1 : '—'}</span>
+      <span class="stats-name">${esc(g.name)}</span>
+      <span class="stats-ccu">${g.ok ? fmtCcu(g.ccu) : '查询失败'}</span>
+      <span class="stats-actions">
+        <button class="btn s" data-launch="${esc(String(g.appId))}" title="启动游戏">启动</button>
+        <button class="btn s" data-market="${esc(String(g.appId))}" title="打开社区市场">市场</button>
+        <button class="btn s" data-store-monitor="${esc(String(g.appId))}" title="加入挂机行情监控">加监控</button>
+      </span>
+    </div>`
+    )
+    .join('');
+}
+
+if ($('#statsRefresh')) $('#statsRefresh').onclick = () => { S.statsLoaded = false; loadStats(); };
+
+async function doStatsLookup() {
+  const q = ($('#statsSearchInput') && $('#statsSearchInput').value || '').trim();
+  const box = $('#statsLookupBox');
+  if (!box) return;
+  if (!q) {
+    toast('请输入游戏名或 AppID', true);
+    return;
+  }
+  box.style.display = '';
+  box.innerHTML = '<div class="fld-hint">查询中…</div>';
+  const r = await call(SD.stats.lookup(q), { silent: true, noLog: true });
+  if (!r.ok) {
+    box.innerHTML = `<div class="fld-hint" style="color:var(--red)">查询失败：${esc(r.message || '')}</div>`;
+    return;
+  }
+  const d = r.data || {};
+  const p = d.price || {};
+  box.innerHTML = `<div class="stats-lookup-card">
+    <div class="stats-name">${esc(d.name)} <span class="gtag">AppID ${esc(String(d.appId))}</span></div>
+    <div class="stats-ccu-big">当前在线 <b>${d.ccu != null ? fmtCcu(d.ccu) : '—'}</b></div>
+    ${p.finalPriceFormatted ? `<div class="fld-hint">现价 ${esc(p.finalPriceFormatted)}${p.discountPercent ? `（-${p.discountPercent}%）` : ''} · 发售 ${esc(p.releaseDate || '—')}</div>` : ''}
+  </div>`;
+}
+
+if ($('#statsSearchBtn')) $('#statsSearchBtn').onclick = doStatsLookup;
+if ($('#statsSearchInput')) {
+  $('#statsSearchInput').onkeydown = (e) => {
+    if (e.key === 'Enter') doStatsLookup();
+  };
+}
 document.addEventListener('click', (e) => {
   const go = e.target.closest('[data-go]');
   if (go) goto(go.dataset.go);
@@ -748,8 +907,29 @@ function renderUpdateResult(d) {
       )}（当前 v${esc(d.current)}）</div>` +
       (d.notes ? `<div class="dim2" style="font-size:11.5px;margin-bottom:6px;white-space:pre-wrap">${esc(String(d.notes).slice(0, 500))}</div>` : '') +
       (d.url
-        ? `<button class="btn p" id="updateGoBtn" style="height:28px">打开下载页</button>`
+        ? `<div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn p" id="updateDlBtn" style="height:30px">下载并安装</button>
+            <button class="btn s" id="updateGoBtn" style="height:30px">打开下载页</button>
+          </div>`
         : `<div class="dim2" style="font-size:11.5px">发布页没有找到安装包，可到仓库 Releases 页手动下载</div>`);
+    const dl = $('#updateDlBtn');
+    if (dl) {
+      dl.onclick = async () => {
+        const btn = dl;
+        btn.disabled = true;
+        btn.textContent = '下载中…（约 76MB）';
+        const r = await call(SD.update.download(d.url), { silent: true });
+        btn.disabled = false;
+        btn.textContent = '下载并安装';
+        if (!r.ok) {
+          toast(r.message || '下载失败，可点「打开下载页」手动下载', true);
+          return;
+        }
+        const p = r.data || {};
+        toast(`安装包已下载到 ${p.path || '下载目录'}，安装程序即将打开`);
+        log('新版本安装包已下载并启动安装程序', 'g');
+      };
+    }
     const go = $('#updateGoBtn');
     if (go) {
       go.onclick = async () => {
@@ -943,6 +1123,32 @@ $('#setChoosePath').onclick = async () => {
     scanAccounts({ quiet: true });
   }
 };
+
+/* 登录窗口代理「检测代理」：自动探测本机端口并验证可用后填入 */
+if ($('#loginProxyDetect')) {
+  $('#loginProxyDetect').onclick = async () => {
+    const btn = $('#loginProxyDetect');
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '探测中…';
+    const r = await call(SD.net.detectProxy(), { silent: true });
+    btn.disabled = false;
+    btn.textContent = old;
+    if (!r.ok) {
+      toast(r.message || '探测失败', true);
+      return;
+    }
+    const d = r.data || {};
+    if (d.found) {
+      if ($('#setLoginProxy')) $('#setLoginProxy').value = d.proxy;
+      await saveSettings({ keepOpen: true, silent: true });
+      toast(`检测到可用代理 ${d.proxy}，已自动填入并保存`);
+      log(`已检测并启用本机代理 ${d.proxy}`, 'g');
+    } else {
+      toast('没找到在跑的代理工具（Clash / v2rayN 等）。先启动代理软件再点检测', true);
+    }
+  };
+}
 
 /* ===== 界面缩放 =====
    用户反馈"整体太小看不清"。这里做成可调并持久化，重启后恢复。 */
@@ -1378,8 +1584,23 @@ async function updateRefresh() {
   if (last && last.hasUpdate) {
     st.innerHTML =
       `发现新版本 <b>${esc(last.latest)}</b>（当前 ${esc(cur)}）· ` +
+      `<a href="#" id="updateDlLink" style="color:var(--blue);font-weight:600">下载并安装</a> · ` +
       `<a href="#" id="updateOpenLink" style="color:var(--blue)">打开下载页</a>` +
       (last.notes ? `<div style="margin-top:4px">${esc(last.notes)}</div>` : '');
+    const dlLink = st.querySelector('#updateDlLink');
+    if (dlLink) {
+      dlLink.onclick = async (e) => {
+        e.preventDefault();
+        dlLink.textContent = '下载中…';
+        const r = await call(SD.update.download(), { silent: true });
+        dlLink.textContent = '下载并安装';
+        if (!r.ok) {
+          toast(r.message || '下载失败，可点「打开下载页」手动下载', true);
+          return;
+        }
+        toast(`安装包已下载到 ${(r.data && r.data.path) || '下载目录'}，安装程序即将打开`);
+      };
+    }
     return;
   }
   if (last) {
@@ -1996,6 +2217,15 @@ async function loadInfo() {
   renderToggles();
   renderRailFooter();
   status('就绪', `${r.data.platform} · ${r.data.encryptionAvailable ? '系统加密可用' : '系统加密不可用'}`);
+  // 趋势补数据：用上次缓存下来的逐件估值，启动就补一个快照点（不联网）
+  try {
+    const rows = JSON.parse(localStorage.getItem('sd_trend_rows_v1') || '[]');
+    const est = Array.isArray(rows) ? rows.reduce((s, x) => s + (Number(x.q) || 0) * (Number(x.p) || 0), 0) : 0;
+    if (est > 0) {
+      pushTrend(est);
+      renderTrend();
+    }
+  } catch { /* 缓存坏了忽略 */ }
 
   if (!r.data.encryptionAvailable) {
     log('系统加密不可用，SSFN 凭证将无法保存', 'a');
@@ -2975,6 +3205,15 @@ async function quoteAll(opts = {}) {
   if (est > 0) {
     pushTrend(est);
     renderTrend();
+    // 缓存逐件估值原料：下次启动不用联网也能补一个快照点，
+    // QQ 里的「查估值」也用这份缓存（存进 settings）
+    try {
+      const rows = S.invRows
+        .map((r) => ({ q: r.qty || 0, p: r.priceYuan > 0 ? r.priceYuan : r.lowestPrice || 0 }))
+        .filter((x) => x.q > 0 && x.p > 0);
+      localStorage.setItem('sd_trend_rows_v1', JSON.stringify(rows.slice(0, 4000)));
+    } catch { /* 配额满忽略 */ }
+    call(SD.settings.set({ lastInvValueYuan: Math.round(est * 100) / 100, lastInvValueAt: Date.now() }), { silent: true, noLog: true });
   }
 
   // 分母只用"真正参与了查价的可售物品"：

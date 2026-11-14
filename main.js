@@ -471,6 +471,33 @@ const wrap = (fn) => async (event, ...args) => {
   }
 };
 
+/**
+ * 免费游戏领取结果 → 手机/QQ 推送。
+ * 各平台 claim 返回结构不同，这里兼容三种形态，只统计“真正入库”的条目。
+ */
+function notifyClaimResult(platform, r) {
+  try {
+    if (!r) return;
+    const titles = [];
+    const collect = (results) => {
+      for (const x of results || []) {
+        if (x && x.ok && x.state !== 'owned' && x.title) titles.push(x.title);
+      }
+    };
+    if (Array.isArray(r.accounts)) r.accounts.forEach((a) => collect(a.results));
+    else if (Array.isArray(r.results)) collect(r.results);
+    else if (r.ok && r.title) titles.push(r.title);
+    if (!titles.length) return;
+    const list = titles.slice(0, 4).map((t) => `《${t}》`).join('、');
+    const more = titles.length > 4 ? ` 等 ${titles.length} 项` : '';
+    notify.send(`免费游戏入库（${platform}）`, `${list}${more}已领取进库。`, {
+      onClick: () => showMainWindow('free'),
+    });
+  } catch {
+    /* 通知失败不影响领取流程 */
+  }
+}
+
 /** 需要往渲染层推中间结果的处理器：把 sender 交给 fn，返回值仍走同样包装 */
 const wrapEvent = (fn) => async (event, ...args) => {
   try {
@@ -875,6 +902,15 @@ ipcMain.handle('costs:exportCsv', wrap(async (sid) => {
 ipcMain.handle('update:state', wrap(async () => updater.getState()));
 ipcMain.handle('update:check', wrap(async () => updater.check()));
 ipcMain.handle('update:open', wrap(async (url) => updater.openDownload(url)));
+ipcMain.handle('update:download', wrap(async (url) => updater.downloadUpdate(url)));
+
+/* 代理自动探测：设置页按钮 + 登录窗口失败时自动兜底用 */
+ipcMain.handle('net:detectProxy', wrap(async () => require('./main/proxyDetect').detectProxy()));
+
+/* Steam 挂卡（卡牌掉落进度）与游戏玩家/市场统计 */
+ipcMain.handle('cards:progress', wrap(async () => require('./main/cardsIdle').progress()));
+ipcMain.handle('stats:popular', wrap(async () => require('./main/gameStats').popular()));
+ipcMain.handle('stats:lookup', wrap(async (term) => require('./main/gameStats').lookup(term)));
 
 ipcMain.handle('notify:state', wrap(async () => notify.getState()));
 ipcMain.handle('notify:set', wrap(async (p = {}) => {
@@ -1058,7 +1094,11 @@ ipcMain.handle('epic:login', wrap(async () => epicClaim.openLoginWindow(win)));
 ipcMain.handle('epic:logout', wrap(async () => epicClaim.logoutAll()));
 ipcMain.handle('epic:remove', wrap(async (id) => epicClaim.remove(id)));
 ipcMain.handle('epic:setEnabled', wrap(async (id, enabled) => epicClaim.setEnabled(id, enabled)));
-ipcMain.handle('epic:claim', wrap(async (offers, opts) => epicClaim.claimMany(offers, opts || {})));
+ipcMain.handle('epic:claim', wrap(async (offers, opts) => {
+  const r = await epicClaim.claimMany(offers, opts || {});
+  notifyClaimResult('Epic', r);
+  return r;
+}));
 // 游戏库渐进加载：先返回已缓存的条目，之后每补一批目录就 push 一次
 ipcMain.handle('epic:library', wrapEvent(async (event, accountId) =>
   require('./main/epicLibrary').fetchLibrary(accountId, {}, (payload) => {
@@ -1074,7 +1114,11 @@ ipcMain.handle('epic:owned', wrap(async (offers, force) =>
 
 // Steam：免费包走商店的 addfreelicense，复用主程序的 persist:steam 登录态
 ipcMain.handle('steam:freeStatus', wrap(async () => require('./main/steamClaim').status()));
-ipcMain.handle('steam:claim', wrap(async (item) => require('./main/steamClaim').claim(item)));
+ipcMain.handle('steam:claim', wrap(async (item) => {
+  const r = await require('./main/steamClaim').claim(item);
+  notifyClaimResult('Steam', r && Array.isArray(r.results) ? r : (r && r.ok ? { claimed: 1, titles: [item && item.title] } : r));
+  return r;
+}));
 
 // GOG：库和赠送领取都认网页 Cookie，登录窗口只需要开一次
 ipcMain.handle('gog:status', wrap(async () => require('./main/gogLibrary').status()));
@@ -1082,7 +1126,11 @@ ipcMain.handle('gog:login', wrap(async () => require('./main/gogLibrary').openLo
 ipcMain.handle('gog:library', wrap(async () => require('./main/gogLibrary').fetchLibrary()));
 ipcMain.handle('gog:owned', wrap(async (offers, force) =>
   require('./main/gogLibrary').matchOffers(offers || [], { force: !!force })));
-ipcMain.handle('gog:claim', wrap(async () => require('./main/gogLibrary').claim()));
+ipcMain.handle('gog:claim', wrap(async () => {
+  const r = await require('./main/gogLibrary').claim();
+  notifyClaimResult('GOG', r);
+  return r;
+}));
 ipcMain.handle('gog:logout', wrap(async () => require('./main/gogLibrary').logout()));
 
 /* ---------------------------------- 授权 ---------------------------------- */
