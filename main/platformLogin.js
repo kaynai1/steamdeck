@@ -12,19 +12,22 @@
  * 供账号管理展示与后续功能（网页领取、库同步）使用。
  */
 
-const { BrowserWindow, session } = require('electron');
+const { BrowserWindow, session, net } = require('electron');
+const store = require('./store');
 const logger = require('./logger');
 
 const PLATFORMS = {
   ubisoft: {
     label: 'Ubisoft',
     partition: 'persist:plat-ubisoft',
-    loginUrl: 'https://login.ubisoft.com/?lang=zh-CN',
+    // 2026-11 实测：login.ubisoft.com 在部分国内网络 DNS 直接解析失败（ERR_NAME_NOT_RESOLVED）；
+    // account.ubisoft.com 实测可达且同样承载登录流程，登录后再 302 到账号中心。
+    loginUrl: 'https://account.ubisoft.com/zh-CN/login',
     domain: 'ubisoft.com',
     // 登录成功后种的会话 Cookie（任一命中即视为已登录）
     markers: ['UserID', 'sid', 'ubid_main', 'Ubi-Webauth', 'twoStepSid'],
     storeUrl: 'https://store.ubisoft.com/',
-    loginHosts: ['login.ubisoft.com'],
+    loginHosts: ['login.ubisoft.com', 'account.ubisoft.com/login'],
   },
   ea: {
     label: 'EA',
@@ -90,9 +93,19 @@ async function statusAll() {
   return out;
 }
 
-/** 打开某平台登录窗口；检测到登录态后自动关闭 */
-function openLoginWindow(platform, parent) {
+/** 打开某平台登录窗口；检测到登录态后自动关闭。
+ * 登录窗口走 Chromium 网络栈：优先「登录窗口代理」设置，其次 Windows 系统代理；
+ * 育碧/EA/暴雪的登录域名在部分国内网络直连不通（DNS 解析失败），
+ * 开系统代理（Clash/v2rayN）即可正常打开。 */
+async function openLoginWindow(platform, parent) {
   const cfg = cfgOf(platform);
+  // 平台登录域名多数在境外：给这个分区设置代理（loginProxy 优先，否则跟随系统）
+  try {
+    const ses = session.fromPartition(cfg.partition);
+    const proxy = String(store.getSettings().loginProxy || '').trim();
+    await ses.setProxy(proxy ? { mode: 'fixed_servers', proxyRules: proxy } : { mode: 'system' });
+  } catch { /* setProxy 失败不阻塞（跟随默认） */ }
+
   return new Promise((resolve, reject) => {
     const win = new BrowserWindow({
       width: 580,
@@ -147,9 +160,14 @@ function openLoginWindow(platform, parent) {
       }
     });
 
-    win.loadURL(cfg.loginUrl).catch((e) =>
-      finish(reject, Object.assign(new Error(`${cfg.label} 登录页打开失败：${e.message}`), { code: 'E_LOAD' }))
-    );
+    win.loadURL(cfg.loginUrl).catch((e) => {
+      const raw = (e && e.message) || String(e || '加载失败');
+      // DNS 解析失败 / 连接失败：十有八九是直连不通，直接给可操作的指引
+      const hint = /NAME_NOT_RESOLVED|ERR_NAME|TIMED_OUT|ERR_CONNECTION|refused/i.test(raw)
+        ? `${cfg.label} 登录页无法直连（${raw}）。育碧/EA/暴雪的登录域名在部分国内网络直连不通：请开启系统代理（Clash / v2rayN 开「系统代理」）或在软件「设置 → 登录窗口代理」里填入代理端口后重试。`
+        : `${cfg.label} 登录页打开失败：${raw}`;
+      finish(reject, Object.assign(new Error(hint), { code: 'E_LOAD' }));
+    });
   });
 }
 

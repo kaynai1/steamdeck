@@ -1181,6 +1181,14 @@ ipcMain.handle('plat:login', wrap(async (platform) =>
   require('./main/platformLogin').openLoginWindow(platform, win)));
 ipcMain.handle('plat:logout', wrap(async (platform) => require('./main/platformLogin').logout(platform)));
 
+/* Ubisoft 账号库：官方 Ubiservices 接口（邮箱+密码登录，读 ownedgames） */
+ipcMain.handle('ubi:login', wrap(async ({ email, password }) =>
+  require('./main/ubiAccount').loginPassword(email, password)));
+ipcMain.handle('ubi:login2fa', wrap(async ({ code }) => require('./main/ubiAccount').login2fa(code)));
+ipcMain.handle('ubi:logout', wrap(async () => require('./main/ubiAccount').logoutAccount()));
+ipcMain.handle('ubi:library', wrap(async (force) => require('./main/ubiAccount').fetchLibrary(!!force)));
+ipcMain.handle('ubi:accountStatus', wrap(async () => require('./main/ubiAccount').status()));
+
 ipcMain.handle('store:wishlistList', wrap(async () => require('./main/wishlist').list()));
 ipcMain.handle('store:wishlistPrices', wrap(async (items) => require('./main/wishlist').prices(items)));
 ipcMain.handle('store:idleWatchAdd', wrap(async (p) =>

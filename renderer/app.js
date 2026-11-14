@@ -39,6 +39,8 @@ const S = {
   gogLib: { items: [], loading: false, at: 0, error: '', linked: false },
   // 平台促销/登录态（ubisoft / ea / blizzard）：{ items, loading, at, error, linked }
   platLibs: {},
+  // Ubisoft 账号游戏库（官方 Ubiservices 接口）：{ loggedIn, items, loading, error, name }
+  ubiAccountLib: { loggedIn: false, items: [], loading: false, error: '', name: '' },
   logs: [],
   switching: false,
   selling: false,
@@ -764,11 +766,19 @@ async function loadPlatAccounts() {
   if (!box) return;
   const r = await call(SD.plat.status(), { noLog: true, silent: true });
   const data = (r.ok && r.data) || {};
+  // Ubisoft 账号态走官方接口票据（能读「我的游戏」），网页 Cookie 只是兜底展示
+  const ubiAcc = await call(SD.ubi.accountStatus(), { noLog: true, silent: true });
+  const ubi = (ubiAcc.ok && ubiAcc.data) || { loggedIn: false, name: '' };
+  if (data.ubisoft) data.ubisoft.linked = data.ubisoft.linked || !!ubi.loggedIn;
   const linked = Object.values(data).filter((x) => x && x.linked).length;
   if ($('#platAccCount')) $('#platAccCount').textContent = linked ? `${linked}/3 已登录` : '';
   box.innerHTML = Object.keys(PLAT_ACC_META).map((key) => {
     const meta = PLAT_ACC_META[key];
     const st = data[key] || {};
+    const isUbi = key === 'ubisoft';
+    const libNote = isUbi
+      ? (ubi.loggedIn ? `官方接口已登录${ubi.name ? '（' + ubi.name + '）' : ''}` : '官方接口未登录')
+      : '暂无公开库接口（EA App / 战网为客户端平台）';
     return `<div class="acard ${st.linked ? 'on' : ''}">
       <div class="top">
         <div class="av2" style="background:${meta.grad}">${esc(meta.label.slice(0, 1))}</div>
@@ -779,7 +789,7 @@ async function loadPlatAccounts() {
         <div class="st2 ${st.linked ? 'on' : ''}"><span class="dot"></span>${st.linked ? '已登录' : '未登录'}</div>
       </div>
       <div class="ast">
-        <div data-copy="${st.linked ? '网页登录态已保存在本机' : '未登录'}" data-copy-label="${esc(meta.label)}登录态" title="点击复制"><div class="k">登录态</div><div class="v">${st.linked ? '保存在本机' : '未登录'}</div></div>
+        <div data-copy="${esc(libNote)}" data-copy-label="${esc(meta.label)}游戏库" title="点击复制"><div class="k">账号游戏库</div><div class="v">${esc(libNote)}</div></div>
         <div data-copy="${st.cookieCount || 0} 个 Cookie" data-copy-label="${esc(meta.label)}分区" title="点击复制"><div class="k">本机分区</div><div class="v">${st.cookieCount || 0} 个 Cookie</div></div>
       </div>
       <div class="arow">
@@ -792,6 +802,11 @@ async function loadPlatAccounts() {
     b.onclick = async () => {
       const key = b.dataset.platLogin;
       const meta = PLAT_ACC_META[key];
+      // Ubisoft：账号登录（官方接口，登录后自动读「我的游戏」）
+      if (key === 'ubisoft') {
+        openUbiLoginModal();
+        return;
+      }
       toast(`已打开 ${meta.label} 登录窗口，登录完成后自动关闭`);
       const r2 = await call(SD.plat.login(key), { noLog: true, silent: true });
       if (r2.ok) {
@@ -810,11 +825,21 @@ async function loadPlatAccounts() {
   box.querySelectorAll('[data-plat-logout]').forEach((b) => {
     b.onclick = async () => {
       const key = b.dataset.platLogout;
-      await call(SD.plat.logout(key), { noLog: true, silent: true });
-      if (S.platLibs[key]) S.platLibs[key].linked = false;
-      toast(`已退出${PLAT_ACC_META[key].label}登录`);
+      if (key === 'ubisoft') {
+        await call(SD.ubi.logout(), { noLog: true, silent: true });
+        await call(SD.plat.logout(key), { noLog: true, silent: true });
+        S.ubiAccountLib = { loggedIn: false, items: [], loading: false, error: '', name: '' };
+        toast('已退出 Ubisoft 账号');
+      } else {
+        await call(SD.plat.logout(key), { noLog: true, silent: true });
+        if (S.platLibs[key]) S.platLibs[key].linked = false;
+        toast(`已退出${PLAT_ACC_META[key].label}登录`);
+      }
       loadPlatAccounts();
-      if (S.libSource === key) renderPlatBar();
+      if (S.libSource === key) {
+        renderPlatBar();
+        if (key === 'ubisoft') renderPlatLib('ubisoft');
+      }
     };
   });
 }
@@ -7104,6 +7129,8 @@ function setLibSource(src) {
     if (!(st.items || []).length && !st.loading) {
       loadPlatLib(src);
     }
+    // Ubisoft：账号游戏库（官方接口）优先展示
+    if (src === 'ubisoft') loadUbiAccountLib();
     return;
   }
   renderGogBar();
@@ -7176,59 +7203,103 @@ function platState(platform) {
   return S.platLibs[platform];
 }
 
-/** 平台工具条（登录态 + 登录/退出 + 刷新促销）随当前平台刷新 */
+/** 平台工具条（登录态 + 登录/退出 + 刷新促销）随当前平台刷新。
+ *  Ubisoft 的登录走官方账号接口（读「我的游戏」）；EA / 暴雪走网页登录。 */
 function renderPlatBar() {
   const platform = S.libSource;
   if (!PLAT_META[platform]) return;
   const meta = PLAT_META[platform];
-  const st = platState(platform);
+  const isUbi = platform === 'ubisoft';
+  const linked = isUbi ? S.ubiAccountLib.loggedIn : platState(platform).linked;
   const state = $('#libPlatState');
   if (state) {
     state.innerHTML = `${esc(meta.label)}账号：${
-      st.linked ? '<b style="color:var(--green)">已登录</b>' : '<span style="color:var(--dim)">未登录</span>'
+      linked
+        ? `<b style="color:var(--green)">已登录${isUbi && S.ubiAccountLib.name ? '（' + esc(S.ubiAccountLib.name) + '）' : ''}</b>`
+        : '<span style="color:var(--dim)">未登录</span>'
     }`;
   }
   const login = $('#libPlatLogin');
   if (login) {
-    login.textContent = `登录 ${meta.label}`;
-    login.style.display = st.linked ? 'none' : '';
+    login.textContent = isUbi ? '账号登录（读我的游戏）' : `登录 ${meta.label}`;
+    login.style.display = linked ? 'none' : '';
   }
   const logout = $('#libPlatLogout');
   if (logout) {
-    logout.textContent = `退出${meta.label}`;
-    logout.style.display = st.linked ? '' : 'none';
+    logout.textContent = isUbi ? '退出账号' : `退出${meta.label}`;
+    logout.style.display = linked ? '' : 'none';
   }
 }
 
-/** 渲染平台促销精选卡 */
+/** 渲染平台页：
+ *  - Ubisoft：上半区 = 账号游戏（官方接口，登录后自动扫描）；下半区 = 促销精选
+ *  - EA / EA App、暴雪战网没有公开的账号库接口（两家都是桌面客户端平台），
+ *    页面给出明确说明 + 促销精选，不再让用户误以为促销清单就是游戏库。 */
 function renderPlatLib(platform) {
   const box = $('#libBody');
   if (!box) return;
   const meta = PLAT_META[platform] || { label: platform, short: platform };
   const st = platState(platform);
   const q = S.libQuery.trim().toLowerCase();
+
+  // ---------- 平台说明区（EA / 暴雪） ----------
+  let noApiNote = '';
+  if (platform !== 'ubisoft') {
+    noApiNote = `<div style="grid-column:1/-1;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;font-size:11.5px;color:var(--muted);line-height:1.7;background:var(--subtle-card)">
+      <b style="color:var(--text)">关于${esc(meta.label)}账号游戏库：</b>EA App 与暴雪战网没有公开的账号库接口（两家均以桌面客户端为主，网页端不提供「我的游戏」清单），暂时无法像 Steam / Epic / GOG 那样在软件里扫描你账号拥有的游戏。可以点上方「登录」保存账号登录态（后续接口可用时直接启用）；下方促销精选会照常每日更新。
+    </div>`;
+  }
+
+  // ---------- Ubisoft 账号游戏区 ----------
+  let accHtml = '';
+  if (platform === 'ubisoft') {
+    const ul = S.ubiAccountLib;
+    if (ul.loading) {
+      accHtml = `<div class="empty" style="grid-column:1/-1"><b>正在读取你的 Ubisoft 游戏库（官方接口）…</b>首次约几秒到十几秒。</div>`;
+    } else if (ul.loggedIn && (ul.items || []).length) {
+      let accList = ul.items;
+      if (q) accList = accList.filter((g) => String(g.title || '').toLowerCase().includes(q));
+      accHtml = `<div style="grid-column:1/-1;display:flex;align-items:baseline;gap:8px;padding:2px 2px 0">
+        <span style="font-size:13px;font-weight:650">我的游戏</span>
+        <span class="dim2" style="font-size:11px">${esc(ul.name || '')} · ${accList.length} 个 · 来自 Ubisoft 官方接口</span>
+      </div>` + accList.slice(0, LIB_CAP).map((g) => {
+        const fb = String(g.title || '?').replace(/[^A-Za-z0-9\u4e00-\u9fa5]/g, '').slice(0, 2).toUpperCase() || '?';
+        return `<div class="gcard portrait" title="${esc(g.title)}">
+        <div class="cov">
+          ${g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />` : ''}
+          <span class="covfb">${esc(fb)}</span>
+          <span class="plat">Ubisoft</span>
+        </div>
+        <div class="ib2">
+          <div class="nm">${esc(g.title)}</div>
+          <div class="meta"><span class="gtag">账号拥有</span></div>
+        </div>
+        <div class="gact-row">
+          <button class="btn s gact-btn" data-store-url="https://store.ubisoft.com/">商店</button>
+        </div>
+      </div>`;
+      }).join('');
+    } else if (ul.expired) {
+      accHtml = `<div class="empty" style="grid-column:1/-1"><b>登录已过期</b>Ubisoft 会话票据过期了，点上方「账号登录」重新登录一次即可。</div>`;
+    } else {
+      accHtml = `<div class="empty" style="grid-column:1/-1"><b>登录 Ubisoft 后自动扫描你的游戏库</b>
+        点上方「账号登录（官方接口）」，用邮箱+密码登录后，这里会列出你账号拥有的全部游戏。
+        <span class="dim2">接口域名国内通常需要代理：请开系统代理（Clash / v2rayN）或到「设置 → 登录窗口代理」填好代理端口。</span></div>`;
+    }
+  }
+
+  // ---------- 促销精选区 ----------
   let list = st.items || [];
   if (q) list = list.filter((g) => String(g.title || '').toLowerCase().includes(q));
 
-  if (st.loading && !list.length) {
-    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>正在读取${esc(meta.label)}促销…</b>数据来自 CheapShark 聚合接口（美元报价）。</div>`;
-    return;
-  }
-  if (!list.length) {
-    const reason = st.empty
-      ? `${meta.label} 聚合源暂无促销返回（EA App 与暴雪商店暂未被聚合收录，恢复后自动显示）。可点上方「登录」保存账号态，后续功能将直接可用。`
-      : st.error || `${meta.label} 商店当前没有符合条件的折扣商品；也可能是聚合源暂时抽风，稍后点「刷新促销」再试。`;
-    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>${esc(meta.label)} · 促销精选</b>${esc(reason)}</div>`;
-    return;
-  }
-
-  const header = `<div style="grid-column:1/-1;display:flex;align-items:baseline;gap:8px;padding:2px 2px 0">
-      <span style="font-size:13px;font-weight:650">促销精选</span>
-      <span class="dim2" style="font-size:11px">每日自动更新 · ${list.length} 款在售 · 美元报价</span>
-    </div>`;
-  box.innerHTML =
-    header +
-    list.slice(0, LIB_CAP).map((g) => {
+  let promoHtml = '';
+  if (st.loading && !list.length && !(platform === 'ubisoft' && S.ubiAccountLib.items.length)) {
+    promoHtml = `<div class="empty" style="grid-column:1/-1"><b>正在读取${esc(meta.label)}促销…</b>数据来自 CheapShark 聚合接口（美元报价）。</div>`;
+  } else if (list.length) {
+    promoHtml = `<div style="grid-column:1/-1;display:flex;align-items:baseline;gap:8px;padding:10px 2px 0">
+        <span style="font-size:13px;font-weight:650">促销精选</span>
+        <span class="dim2" style="font-size:11px">每日自动更新 · ${list.length} 款在售 · 美元报价</span>
+      </div>` + list.slice(0, LIB_CAP).map((g) => {
       const fb = String(g.title || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
       const zh = g.steamAppId ? zhOfApp(g.steamAppId) : '';
       return `<div class="gcard portrait" title="${esc(g.title)}">
@@ -7251,6 +7322,17 @@ function renderPlatLib(platform) {
       </div>
     </div>`;
     }).join('');
+  } else if (!accHtml || (platform === 'ubisoft' && !list.length)) {
+    // Ubisoft：账号区有内容时促销空就不占位；EA/暴雪：说明区已解释
+    const reason = st.empty
+      ? `${meta.label} 聚合源暂无促销返回（EA App 与暴雪商店暂未被聚合收录，恢复后自动显示）。`
+      : st.error || `${meta.label} 商店当前没有符合条件的折扣商品；也可能是聚合源暂时抽风，稍后点「刷新促销」再试。`;
+    if (platform !== 'ubisoft' || !accHtml || !S.ubiAccountLib.loggedIn) {
+      promoHtml = `<div class="empty" style="grid-column:1/-1"><b>${esc(meta.label)} · 促销精选</b>${esc(reason)}</div>`;
+    }
+  }
+
+  box.innerHTML = noApiNote + accHtml + promoHtml;
   lazyPaintCovers(box);
   updateLibCount(list.length);
 }
@@ -7299,6 +7381,131 @@ async function loadPlatLib(platform, force) {
       if (hasNew && S.libSource === platform) renderPlatLib(platform);
     })
     .catch(() => {});
+}
+
+/* ---------------- Ubisoft 账号游戏库（官方 Ubiservices 接口） ---------------- */
+
+/** 拉账号游戏库（登录态由主进程票据决定），登录后自动刷新 */
+async function loadUbiAccountLib(force) {
+  const ul = S.ubiAccountLib;
+  if (ul.loading) return;
+  // 先看账号状态（ticket 是否还在）
+  const sr = await call(SD.ubi.accountStatus(), { silent: true, noLog: true });
+  if (sr.ok && sr.data) {
+    ul.loggedIn = !!sr.data.loggedIn;
+    ul.name = sr.data.name || '';
+    if (!ul.loggedIn) {
+      ul.items = [];
+      if (S.libSource === 'ubisoft') renderPlatLib('ubisoft');
+      return;
+    }
+  }
+  ul.loading = true;
+  ul.error = '';
+  if (S.libSource === 'ubisoft') renderPlatLib('ubisoft');
+  const r = await call(SD.ubi.library(!!force), { silent: true, noLog: true });
+  ul.loading = false;
+  if (r.ok && r.data) {
+    if (r.data.expired) {
+      ul.expired = true;
+      ul.loggedIn = false;
+      ul.items = [];
+    } else if (r.data.loggedIn === false) {
+      ul.loggedIn = false;
+      ul.items = [];
+    } else {
+      ul.loggedIn = true;
+      ul.items = r.data.items || [];
+      ul.expired = false;
+    }
+  } else {
+    ul.error = r.message || '读取失败';
+  }
+  if (S.libSource === 'ubisoft') renderPlatLib('ubisoft');
+}
+
+/** 打开 Ubisoft 账号登录弹窗（邮箱+密码 → 2FA 按需） */
+function openUbiLoginModal() {
+  const m = $('#ubiLoginModal');
+  if (!m) return;
+  m.classList.add('on');
+  if ($('#ubiEmail')) $('#ubiEmail').value = '';
+  if ($('#ubiPass')) $('#ubiPass').value = '';
+  if ($('#ubiLoginMsg')) $('#ubiLoginMsg').textContent = '';
+  if ($('#ubiEmail')) $('#ubiEmail').focus();
+}
+
+function closeUbiLoginModal() {
+  const m = $('#ubiLoginModal');
+  if (m) m.classList.remove('on');
+}
+
+if ($('#ubiLoginCancel')) $('#ubiLoginCancel').onclick = closeUbiLoginModal;
+if ($('#ubiLoginOk')) {
+  $('#ubiLoginOk').onclick = async () => {
+    const email = String($('#ubiEmail') && $('#ubiEmail').value || '').trim();
+    const pass = String($('#ubiPass') && $('#ubiPass').value || '');
+    const msg = $('#ubiLoginMsg');
+    if (!email || !pass) {
+      if (msg) msg.textContent = '请填写邮箱和密码';
+      return;
+    }
+    const btn = $('#ubiLoginOk');
+    btn.disabled = true;
+    btn.textContent = '登录中…';
+    if (msg) msg.textContent = '正在连接育碧官方接口（需要代理网络）…';
+    const r = await call(SD.ubi.login(email, pass), { silent: true });
+    btn.disabled = false;
+    btn.textContent = '登录';
+    if (!r.ok) {
+      if (msg) msg.textContent = r.message || '登录失败';
+      return;
+    }
+    const d = r.data || {};
+    if (d.need2fa) {
+      closeUbiLoginModal();
+      const m2 = $('#ubi2faModal');
+      if (m2) {
+        m2.classList.add('on');
+        if ($('#ubi2faCode')) $('#ubi2faCode').value = '';
+        if ($('#ubi2faCode')) $('#ubi2faCode').focus();
+      }
+      return;
+    }
+    closeUbiLoginModal();
+    toast('Ubisoft 已登录，正在读取你的游戏库');
+    loadUbiAccountLib(true);
+  };
+}
+if ($('#ubi2faCancel')) {
+  $('#ubi2faCancel').onclick = () => {
+    const m = $('#ubi2faModal');
+    if (m) m.classList.remove('on');
+  };
+}
+if ($('#ubi2faOk')) {
+  $('#ubi2faOk').onclick = async () => {
+    const code = String($('#ubi2faCode') && $('#ubi2faCode').value || '').trim();
+    const msg = $('#ubi2faMsg');
+    if (!code) {
+      if (msg) msg.textContent = '请输入验证码';
+      return;
+    }
+    const btn = $('#ubi2faOk');
+    btn.disabled = true;
+    btn.textContent = '提交中…';
+    const r = await call(SD.ubi.login2fa(code), { silent: true });
+    btn.disabled = false;
+    btn.textContent = '提交';
+    if (!r.ok) {
+      if (msg) msg.textContent = r.message || '验证失败';
+      return;
+    }
+    const m = $('#ubi2faModal');
+    if (m) m.classList.remove('on');
+    toast('Ubisoft 已登录，正在读取你的游戏库');
+    loadUbiAccountLib(true);
+  };
 }
 
 async function loadGogLib() {
@@ -7362,6 +7569,11 @@ if ($('#libSource')) {
     $('#libPlatLogin').onclick = async () => {
       const platform = S.libSource;
       if (!PLAT_META[platform]) return;
+      // Ubisoft：账号登录（官方接口读「我的游戏」）
+      if (platform === 'ubisoft') {
+        openUbiLoginModal();
+        return;
+      }
       toast(`已打开 ${PLAT_META[platform].label} 登录窗口，登录完成后自动关闭`);
       const r = await call(SD.plat.login(platform), { noLog: true, silent: true });
       if (r.ok && r.data) {
@@ -7377,6 +7589,14 @@ if ($('#libSource')) {
     $('#libPlatLogout').onclick = async () => {
       const platform = S.libSource;
       if (!PLAT_META[platform]) return;
+      if (platform === 'ubisoft') {
+        await call(SD.ubi.logout(), { silent: true });
+        S.ubiAccountLib = { loggedIn: false, items: [], loading: false, error: '', name: '' };
+        renderPlatBar();
+        renderPlatLib('ubisoft');
+        toast('已退出 Ubisoft 账号');
+        return;
+      }
       await call(SD.plat.logout(platform), { silent: true });
       platState(platform).linked = false;
       renderPlatBar();
@@ -10094,10 +10314,17 @@ function renderFree() {
   const runHtml = runPanelHtml();
 
   if (!items.length) {
+    // Ubisoft / EA / 暴雪的限免活动全球不定期才有；接口已接好，活动出现即自动列出
+    const platNotes = {
+      ubisoft: 'Ubisoft 限免不定期才有（如育碧周年活动）。接口已接好并自动检测，活动上线会自动显示在这里，无需你操作。',
+      origin: 'EA 限免不定期才有（EA Play 促销季较常见）。接口已接好并自动检测，活动上线会自动显示在这里。',
+      battlenet: '暴雪战网限免不定期才有（暴雪周年、周年庆活动）。接口已接好并自动检测，活动上线会自动显示在这里。',
+    };
+    const note = platNotes[S.free.filter];
     const txt = S.free.loading || !S.free.loaded
       ? '正在获取…'
       : (S.free.filter === 'all' ? '当前没有可领取的活动，过一会儿再刷新看看' : '这个平台暂时没有可领取的活动');
-    box.innerHTML = errHtml + runHtml + `<div class="free-empty">${txt}</div>`;
+    box.innerHTML = errHtml + runHtml + `<div class="free-empty">${txt}${note ? '<div style="margin-top:8px;font-size:11px;color:var(--dim)">' + note + '</div>' : ''}</div>`;
     return;
   }
   box.innerHTML = errHtml + runHtml + items.map(freeCard).join('');

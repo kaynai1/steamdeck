@@ -252,6 +252,13 @@ contextBridge.exposeInMainWorld('api', {
     login: (platform) => invoke('plat:login', platform),
     logout: (platform) => invoke('plat:logout', platform),
   },
+  ubi: {
+    login: (email, password) => invoke('ubi:login', { email, password }),
+    login2fa: (code) => invoke('ubi:login2fa', { code }),
+    logout: () => invoke('ubi:logout'),
+    library: (force) => invoke('ubi:library', force),
+    accountStatus: () => invoke('ubi:accountStatus'),
+  },
   free: {
     list: (force) => invoke('free:list', force),
   },
