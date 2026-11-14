@@ -17,6 +17,7 @@ const store = require('./store');
 const logger = require('./logger');
 const session = require('./session');
 const { getIdleDropGames } = require('./storeSearch');
+const hotIdle = require('./hotIdle');
 
 const TTL = 10 * 60 * 1000;
 const GAP_MS = 600;
@@ -31,10 +32,14 @@ function watched() {
   return Array.isArray(list) ? list : [];
 }
 
-/** 内置清单 + 用户自己加的游戏，按 appId 去重 */
+/** 内置/热门清单 + 用户自己加的游戏，按 appId 去重 */
 function games() {
   const map = new Map();
-  for (const g of getIdleDropGames()) {
+  // 优先用每日自动拉取的热门榜（featuredcategories 热销/新品榜），
+  // 还没拉到过时回落内置清单
+  const hot = hotIdle.cachedGames();
+  const source = Array.isArray(hot) && hot.length ? hot : getIdleDropGames();
+  for (const g of source) {
     const appId = Number(g.appId);
     if (appId) map.set(appId, { appId, name: g.name, builtin: true });
   }

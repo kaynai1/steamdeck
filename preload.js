@@ -256,7 +256,7 @@ contextBridge.exposeInMainWorld('api', {
   store: {
     price: (appIdOrName) => invoke('store:price', appIdOrName),
     regionPrices: (appIdOrName) => invoke('store:regionPrices', appIdOrName),
-    idleGames: () => invoke('store:idleGames'),
+    idleGames: (force) => invoke('store:idleGames', !!force),
     idleStats: (force) => invoke('store:idleStats', force),
     priceHistory: () => invoke('store:priceHistory'),
     playing: () => invoke('store:playing'),

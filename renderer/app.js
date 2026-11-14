@@ -8936,6 +8936,8 @@ function idleCard(g, meta) {
     : '';
   const metaLine = [
     meta && meta.category ? meta.category : '挂机掉落',
+    meta && meta.status ? meta.status : '',
+    meta && meta.releaseDate && meta.releaseDate !== '待定' ? `发售 ${meta.releaseDate}` : '',
     g.total ? `市场条目约 ${Number(g.total).toLocaleString('zh-CN')}` : '',
   ]
     .filter(Boolean)
@@ -8965,7 +8967,11 @@ function idleCard(g, meta) {
       <div style="flex:1;min-width:0">
         <div class="idle-game-title">
           <span>${esc(g.name)}</span>
-          <span class="pill ${g.builtin ? 'g' : 'b'}">${g.builtin ? '内置' : '已监控'}</span>
+          ${g.builtin
+            ? (meta && meta.statusTag === 'hot'
+                ? '<span class="pill b">热门</span>'
+                : '<span class="pill g">内置</span>')
+            : '<span class="pill b">已监控</span>'}
           ${playingAppId && Number(g.appId) === playingAppId
             ? '<span class="pill" style="background:rgba(64,180,120,.18);color:var(--green)">正在玩</span>'
             : ''}
@@ -9018,9 +9024,13 @@ function renderIdleCards() {
 async function loadIdleGames(force) {
   const container = $('#idleGamesList');
   if (!container) return;
-  if (!idleRegistry) {
-    const rr = await call(SD.store.idleGames(), { silent: true, noLog: true });
-    idleRegistry = rr.ok && Array.isArray(rr.data) ? rr.data : [];
+  // 热门清单先就位（首次拉取约 20 秒，之后 12 小时缓存秒回），行情按新清单查询
+  if (force || !idleRegistry) {
+    container.innerHTML = '<div class="empty">正在拉取最新热门游戏（官方热销/新品榜，首次约 20 秒）…</div>';
+    const rr = await call(SD.store.idleGames(!!force), { silent: true, noLog: true });
+    // 新接口返回 { at, games, source }，games 为空时走内置兜底
+    const list = rr.ok && rr.data && Array.isArray(rr.data.games) ? rr.data.games : null;
+    idleRegistry = list && list.length ? list : idleRegistry || [];
   }
   container.innerHTML = '<div class="empty">正在读取 Steam 社区市场行情…</div>';
   const r = await call(SD.store.idleStats(!!force), { silent: true, noLog: true });

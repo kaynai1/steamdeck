@@ -485,7 +485,7 @@
         <!-- 挂机游戏动态卡片 -->
         <div class="card" style="padding:14px">
           <div class="ch" style="padding:0 0 10px">
-            <div class="t">最新热门与近期挂机掉落游戏通告</div>
+            <div class="t">最新热门游戏（官方热销/新品榜 · 每日自动更新）</div>
             <div class="r" style="gap:8px;flex-wrap:wrap">
               <span class="fld-hint" style="margin:0">行情来自 Steam 社区市场，10 分钟缓存</span>
               <select id="idleSort" title="排序方式" style="height:26px;padding:0 8px;border-radius:6px;background:var(--input-bg);border:.5px solid var(--input-border);color:var(--input-text);font-size:12px">
@@ -866,7 +866,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.70","url":"https://.../SteamDesk-2.6.70-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.70，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.71","url":"https://.../SteamDesk-2.6.71-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.71，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1023,6 +1023,10 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.71 更新特性：</b><br>
+        1. <b>「最新热门」改为官方接口每日自动更新</b>：旧版是硬编码清单（Banana / Cats / Egg 已过时）；现在拉取 Steam 官方商店的热销榜 + 新品榜，自动过滤 DLC / 工具只留游戏本体，带发售日期与价格，12 小时缓存自动刷新；<br>
+        2. <b>热门游戏自动联动市场行情</b>：榜单里的游戏自动纳入挂机行情监控（可看最低在售、市场条目、走势），你手动「加入监控」的游戏不受影响；<br>
+        3. <b>拉取失败三重兜底</b>：接口失败先用上次缓存，再不行回落内置清单，页面永远有内容；<br>
         <b>v2.6.70 更新特性：</b><br>
         1. <b>修复「下载并安装」卡 0% / 下载失败</b>：下载安装包以前用 Node 直连 github.com，部分网络（含国内多数宽带）直连不通；现在改走 Chromium 网络栈——跟随 Windows 系统代理（Clash 开系统代理即可用）、读取「登录窗口代理」设置、都没有时自动探测本机代理（Clash 7890 / v2rayN 10809 等常见端口）并重试，找到后自动记住；<br>
         2. <b>检查更新同步增强</b>：api.github.com 也走同一套代理逻辑，检查不再时好时坏；<br>
