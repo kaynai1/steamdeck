@@ -22,7 +22,7 @@
  * 这样：域名挂了自动换下一个，渲染层永远只面对一个稳定的本地地址。
  */
 
-const { protocol } = require('electron');
+const { protocol, net } = require('electron');
 
 const SCHEME = 'sdimg';
 
@@ -49,9 +49,9 @@ const ECO_HOSTS = [
  * 所以把它排到第一位。其余保留为兜底：别的网络环境下它们可能是通的。
  */
 const APP_HOSTS = [
-  'https://steamcdn-a.akamaihd.net/steam/apps',
   'https://cdn.cloudflare.steamstatic.com/steam/apps',
   'https://cdn.akamai.steamstatic.com/steam/apps',
+  'https://steamcdn-a.akamaihd.net/steam/apps',
   'https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps',
   'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps',
 ];
@@ -143,6 +143,77 @@ function appCandidates(appId, file) {
     for (const h of hosts) out.push({ url: `${h}/${id}/${f}`, file: f, host: h });
   }
   return out;
+}
+
+/* ----------------------------------------------------------------------------
+ * ★ 2026-11 新游戏封面：老 CDN 上没有文件 ★
+ * 2025 年之后上架的游戏，封面上传到了 store_item_assets 的
+ * 带 hash 目录（如 /steam/apps/4115450/40b20446…/header_schinese.jpg），
+ * 老 CDN 的裸 /header.jpg 是 404，固定文件名猜不出 hash。
+ * 权威来源是商店 appdetails 接口返回的 header_image / library_image
+ * 完整 URL —— 拿到后直接 fetch 它（该域名直连可达）。
+ * 结果记进内存 authorityCache，同一游戏只查一次。
+ * -------------------------------------------------------------------------- */
+const authorityCache = new Map(); // appId -> { url, at }
+const AUTH_TTL = 12 * 3600 * 1000;
+
+async function authorityHeaderUrl(appId) {
+  const id = Number(appId) || 0;
+  if (!id) return null;
+  const hit = authorityCache.get(id);
+  if (hit && Date.now() - hit.at < AUTH_TTL) return hit.url;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 12000);
+  try {
+    // 走 Chromium 网络栈（net.fetch）：跟着系统代理走，
+    // 比裸 fetch 直连稳定得多（store 域名直连时常超时）
+    const res = await net.fetch(
+      `https://store.steampowered.com/api/appdetails?appids=${id}&cc=cn&l=schinese&filters=basic`,
+      {
+        signal: ctl.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
+      }
+    );
+    if (!res.ok) return null;
+    const j = await res.json();
+    const d = j && j[String(id)] && j[String(id)].data;
+    const url = d && (d.header_image || d.library_image || '');
+    if (url) authorityCache.set(id, { url, at: Date.now() });
+    return url || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 走权威 URL 直接抓一张封面（appdetails 提供的带 hash 地址） */
+async function fetchAuthorityImage(appId) {
+  const url = await authorityHeaderUrl(appId);
+  if (!url) return null;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 12000);
+  try {
+    const res = await net.fetch(url, {
+      signal: ctl.signal,
+      headers: {
+        referer: 'https://store.steampowered.com/',
+        accept: 'image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8',
+        'user-agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+      },
+    });
+    if (!res.ok) return null;
+    const type = res.headers.get('content-type') || 'image/jpeg';
+    if (!/^image\//i.test(type)) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf.length) return null;
+    return { buf, type, url };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -314,6 +385,32 @@ function installHandler() {
         const appId = parts[0];
         const file = parts[1] || 'header.jpg';
         candidates = appCandidates(appId, file);
+        try {
+          const got = await fetchImage(candidates);
+          cacheSet(key, got.buf, got.type);
+          return new Response(got.buf, {
+            status: 200,
+            headers: {
+              'content-type': got.type,
+              'cache-control': 'public, max-age=86400',
+            },
+          });
+        } catch (err) {
+          // 老候选失败（多为 2025+ 新游戏：封面上传在带 hash 的新目录，固定文件名猜不到）。
+          // 走 appdetails 拿权威 URL 再抓一次；抓不到再向上抛 404。
+          const auth = await fetchAuthorityImage(appId);
+          if (auth) {
+            cacheSet(key, auth.buf, auth.type);
+            return new Response(auth.buf, {
+              status: 200,
+              headers: {
+                'content-type': auth.type,
+                'cache-control': 'public, max-age=86400',
+              },
+            });
+          }
+          throw err;
+        }
       } else {
         return new Response('unknown host', { status: 404 });
       }
