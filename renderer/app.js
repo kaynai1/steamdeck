@@ -6667,7 +6667,13 @@ async function hydrateLibNames() {
       for (const g of S.lib) {
         const zh = map[String(g.appId)];
         if (zh && zh !== g.name) {
-          g.name = zh;
+          // 原名保留（多为英文），中文名放到卡片下方翻译行；
+          // 只有占位名（App 92 这种）才直接替换，避免卡片显示占位符
+          if (!g.name || /^App\s*\d+$/i.test(g.name)) {
+            g.name = zh;
+          } else {
+            g.zhName = zh;
+          }
           g.hasName = true;
           changed++;
         }
@@ -6681,6 +6687,81 @@ async function hydrateLibNames() {
   } catch { /* 名字补全失败不该影响整页 */ }
   if (S.libSource === 'steam') $('#libSub').textContent = `${S.lib.length} 个游戏`;
   hydrating = false;
+}
+
+/**
+ * 卡片游戏名翻译（2.6.69）
+ * 游戏库用 S.zhNames（AppID → 中文名），促销/免费卡用 S.zhTitles（原标题 → 中文名）。
+ * resolveMany/resolveTitles 内部有永久缓存，重复调用零网络请求。
+ */
+function zhOfApp(appId) {
+  const zh = S.zhNames && S.zhNames[String(Number(appId))];
+  return zh || '';
+}
+function zhOfTitle(title) {
+  const zh = S.zhTitles && S.zhTitles[String(title || '').trim()];
+  return zh || '';
+}
+/** 卡片名下方的翻译行（原名与中文名相同则不显示） */
+function zhLine(name, zh) {
+  const t = String(zh || '').trim();
+  if (!t || !name || t === String(name).trim()) return '';
+  return `<div class="nm-zh" title="${esc(t)}">${esc(t)}</div>`;
+}
+
+/** 批量拿标题中文名（促销/免费页用）；拿到后回写 S.zhTitles。
+ * 主进程先回词典/缓存命中的部分，新标题的商店搜索在后台跑；
+ * 商店接口抽风时结果会晚到，这里按轮次延迟重试拾取。 */
+let titleZhBusy = false;
+let zhRetryTimer = null;
+let zhRetryRounds = 0;
+async function ensureTitleZh(titles) {
+  const list = [...new Set((titles || []).map((t) => String(t || '').trim()).filter(Boolean))]
+    .filter((t) => !(S.zhTitles && S.zhTitles[t]));
+  if (!list.length || titleZhBusy || !SD.names || !SD.names.titles) return false;
+  titleZhBusy = true;
+  let got = false;
+  try {
+    const r = await call(SD.names.titles(list), { silent: true, noLog: true });
+    if (r.ok && r.data && Object.keys(r.data).length) {
+      S.zhTitles = Object.assign(S.zhTitles || {}, r.data);
+      got = true;
+    }
+  } catch { /* 翻译失败不影响列表 */ } finally { titleZhBusy = false; }
+  // 剩下没拿到的：30 秒后重试一轮（最多 4 轮），结果晚到也能补上
+  const missing = list.filter((t) => !(S.zhTitles && S.zhTitles[t]));
+  if (missing.length && zhRetryRounds < 4) {
+    zhRetryRounds++;
+    clearTimeout(zhRetryTimer);
+    zhRetryTimer = setTimeout(() => {
+      ensureTitleZh(missing)
+        .then((more) => {
+          if (more) {
+            if (S.page === 'free') renderFree();
+            else if (S.page === 'dailyDeals') renderDeals();
+          }
+        })
+        .catch(() => {});
+    }, 30 * 1000);
+  }
+  return got;
+}
+
+/** 批量拿 AppID 中文名（促销 Steam 卡用）；拿到后回写 S.zhNames */
+let appZhBusy = false;
+async function ensureAppZh(appIds) {
+  const list = [...new Set((appIds || []).map((x) => String(Number(x))).filter((x) => x && x !== '0'))]
+    .filter((id) => !(S.zhNames && S.zhNames[id]));
+  if (!list.length || appZhBusy) return false;
+  appZhBusy = true;
+  try {
+    const r = await call(SD.library.names(list), { silent: true, noLog: true });
+    if (r.ok && r.data && Object.keys(r.data).length) {
+      S.zhNames = Object.assign(S.zhNames || {}, r.data);
+      return true;
+    }
+  } catch { /* 翻译失败不影响列表 */ } finally { appZhBusy = false; }
+  return false;
 }
 
 function renderLibFilters() {
@@ -6740,7 +6821,8 @@ function renderLibrary() {
   if (S.libApp === 'installed') list = list.filter((g) => g.installed);
   else if (S.libApp === 'tradeable') list = list.filter((g) => g.tradeable || APP_META[String(g.appId)]);
   else if (S.libApp !== 'all') list = list.filter((g) => String(g.appId) === S.libApp);
-  if (q) list = list.filter((g) => `${g.name || ''} ${g.appId}`.toLowerCase().includes(q));
+  // 搜索同时匹配原名与中文翻译，用哪个语言都能搜到
+  if (q) list = list.filter((g) => `${g.name || ''} ${g.zhName || ''} ${g.appId}`.toLowerCase().includes(q));
 
   if (!list.length) {
     box.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>没有游戏</b>${
@@ -6763,11 +6845,16 @@ function renderLibrary() {
         // 与其显示 "App 760" 让人以为没加载出来，不如直说没收录。
         const unnamed = g.hasName === false;
         const shownName = unnamed ? '商店未收录' : g.name;
+        // 未收录原因：Steam 商店没有这个应用的公开页面（测试包/专用服务器/平台组件）
+        const cardTitle = unnamed
+          ? `商店未收录 · Steam 商店没有该应用的公开页面（常见为开发商测试包、专用服务器或平台组件） · AppID ${g.appId}`
+          : `${g.name}${g.zhName ? ' · ' + g.zhName : ''} · AppID ${g.appId}`;
         // 不足 1 小时显示"0 小时"很怪，单独说清楚
         const mins = Number(g.playtime) || 0;
         const hrs = mins >= 60 ? `${Math.round(mins / 60)} 小时` : mins > 0 ? '不足 1 小时' : '';
         const badge = g.tradeable ? '<span class="stat trade">可交易</span>' : '';
-        return `<div class="gcard ${shape}" title="${esc(g.name + ' · AppID ' + g.appId)}">
+        const zhHtml = zhLine(g.name, g.zhName);
+        return `<div class="gcard ${shape}" title="${esc(cardTitle)}">
       <div class="cov">
         <img data-src="${esc(covers[0])}" alt="${esc(shownName)}" loading="lazy" decoding="async"
              data-appid="${esc(String(g.appId))}" data-i="0" onerror="SDCoverErr(this)" />
@@ -6777,6 +6864,7 @@ function renderLibrary() {
       </div>
       <div class="ib2">
         <div class="nm${unnamed ? ' noname' : ''}">${esc(shownName)}</div>
+        ${zhHtml}
         <div class="meta">
           <span class="gtag">AppID ${esc(String(g.appId))}</span>
           ${g.installed ? '<span class="gtag ok">已安装</span>' : ''}
@@ -9183,6 +9271,7 @@ function dealCardHtml(d) {
     </div>
     <div class="fg-body">
       <div class="fg-title">${esc(d.name || '')}</div>
+      ${steam && appId ? zhLine(d.name, zhOfApp(appId)) : zhLine(d.name, zhOfTitle(d.name))}
       <div class="fg-tags">${tags}</div>
       <div class="fg-meta">
         <span class="fg-price">${esc(d.finalText || '')}</span>
@@ -9267,6 +9356,18 @@ async function loadDailyDeals(force) {
   }
   dealData = r.data || {};
   renderDeals();
+  // 卡片游戏名翻译：Steam 卡按 AppID、其他平台按标题，解析完重绘（有缓存时秒回）
+  zhRetryRounds = 0;
+  const allDeals = [...(dealData.steam || []), ...(dealData.gog || []), ...(dealData.other || [])];
+  const appIds = allDeals.filter((d) => d.source === 'steam' && d.appId).map((d) => d.appId);
+  const titles = allDeals
+    .filter((d) => !(d.source === 'steam' && d.appId))
+    .map((d) => d.name);
+  Promise.all([ensureAppZh(appIds), ensureTitleZh(titles)])
+    .then(([a, b]) => {
+      if (a || b) renderDeals();
+    })
+    .catch(() => {});
 }
 
 if ($('#dealRefresh')) {
@@ -9676,6 +9777,7 @@ function freeCard(it) {
     </div>
     <div class="fg-body">
       <div class="fg-title" title="${esc(titleText)}">${esc(titleText)}</div>
+      ${zhLine(titleText, zhOfTitle(titleText))}
       <div class="fg-meta"><span class="fg-free">免费领取</span><span class="fg-end ${t.hot ? 'hot' : ''}">· ${esc(meta.join(' · '))}</span></div>
       <div class="fg-actions">${btn}${webHtml}</div>
     </div>
@@ -9841,6 +9943,13 @@ async function loadFree(opts = {}) {
   }
   // 拿真正的游戏库核对哪些已经拥有；手动刷新时强制重新读一次库
   refreshClaimed(!!opts.force).catch(() => {});
+  // 卡片游戏名翻译：标题→中文名解析完后重绘（有缓存时秒回）
+  zhRetryRounds = 0;
+  ensureTitleZh((S.free.items || []).map((x) => x.title))
+    .then((hasNew) => {
+      if (hasNew) renderFree();
+    })
+    .catch(() => {});
 }
 
 /** 用游戏库（而不是本地临时标记）判断哪些免费条目已经拥有 */

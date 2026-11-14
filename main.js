@@ -622,6 +622,10 @@ ipcMain.handle('library:marketApps', wrap(async (steamId) => library.marketAppsF
 ipcMain.handle('library:names', wrap(async (appIds) =>
   require('./main/appNames').resolveMany(appIds)));
 
+// 标题 → 中文名（每日促销 GOG/Epic 卡、免费领取卡没有 AppID，按标题解析）
+ipcMain.handle('names:titles', wrap(async (titles) =>
+  require('./main/appNames').resolveTitles(titles)));
+
 ipcMain.handle('library:registry', wrap(async () => {
   const dead = library.noMarketSet();
   return require('./main/appRegistry')

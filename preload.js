@@ -52,6 +52,9 @@ contextBridge.exposeInMainWorld('api', {
   net: {
     detectProxy: () => invoke('net:detectProxy'),
   },
+  names: {
+    titles: (titles) => invoke('names:titles', titles),
+  },
   cards: {
     progress: () => invoke('cards:progress'),
   },

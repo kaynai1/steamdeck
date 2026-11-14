@@ -2959,3 +2959,35 @@ input[type=text], input[type=number], input[type=password], select, textarea {
 }
 .stats-ccu-big { font-size: 12px; color: var(--muted); }
 .stats-ccu-big b { font-size: 19px; color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   2.6.69 组合输入框去「框中框」
+   .inp 外层框自带焦点描边与光晕；内层 input 的全局 focus 光晕
+   会再套出一层浅蓝方框。统一由外层表达焦点态。
+   ============================================================ */
+.inp > input:focus,
+.inp > input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   2.6.69 卡片游戏名翻译行（游戏库 / 免费领取 / 每日促销）
+   原名下方一行小字显示商店中文名，没有翻译时不占位。
+   ============================================================ */
+.gcard .nm-zh,
+.fg .nm-zh {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--dim);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fg-body .nm-zh {
+  font-size: 10px;
+  color: var(--dim);
+  margin-top: 1px;
+  margin-bottom: 2px;
+}
