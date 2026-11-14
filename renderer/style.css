@@ -2111,8 +2111,15 @@ body {
 .bn { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
 .bn em { font-size: 10.5px; font-weight: 500; letter-spacing: 0; color: var(--dim); margin-left: 2px; }
 .mk { width: 26px; height: 26px; border-radius: 8px; box-shadow: none; }
-.ib { width: 32px; height: 32px; border-radius: 9px; color: var(--muted); transition: background .15s, color .15s; }
+.ib { width: 32px; height: 32px; border-radius: 9px; color: var(--muted); transition: background .15s, color .15s; position: relative; }
 .ib:hover { background: var(--nav-bg-hover); color: var(--text); }
+/* 顶栏按钮红点角标（发现新版本时点亮） */
+.ib .upd-dot {
+  position: absolute; top: 5px; right: 5px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--red); border: 1.5px solid var(--card);
+  animation: upddot 1.6s ease-in-out infinite; pointer-events: none;
+}
+@keyframes upddot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.78); opacity: .72; } }
 .cur {
   height: 34px; border-radius: 10px; border: 1px solid var(--line2);
   background: var(--card); padding: 0 12px 0 5px; transition: background .15s, border-color .15s;

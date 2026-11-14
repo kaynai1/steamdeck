@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('api', {
     check: () => invoke('update:check'),
     open: (url) => invoke('update:open', url),
     download: (url) => invoke('update:download', url),
+    onFound: (cb) => ipcRenderer.on('update:found', (_e, d) => cb(d)),
+    onDlProgress: (cb) => ipcRenderer.on('update:dlprogress', (_e, p) => cb(p)),
   },
   net: {
     detectProxy: () => invoke('net:detectProxy'),

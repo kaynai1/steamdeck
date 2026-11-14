@@ -813,6 +813,14 @@ seller.on('progress', (p) => win && win.webContents.send('sell:progress', p));
 market.on('progress', (p) => win && win.webContents.send('market:progress', p));
 switcher.on('status', (s) => win && win.webContents.send('accounts:status', s));
 
+/* 版本更新：发现新版弹窗 + 下载进度（渲染进程据此显示百分比） */
+updater.events.on('found', (d) => {
+  if (win && !win.isDestroyed()) win.webContents.send('update:found', d);
+});
+updater.events.on('dl-progress', (p) => {
+  if (win && !win.isDestroyed()) win.webContents.send('update:dlprogress', p);
+});
+
 /* ------------------------------ 免费游戏领取 ------------------------------ */
 
 ipcMain.handle('free:list', wrap(async (force) => require('./main/freeGames').list(!!force)));

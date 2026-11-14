@@ -19,12 +19,21 @@
  */
 
 const { app, shell } = require('electron');
+const { EventEmitter } = require('events');
 const store = require('./store');
 const logger = require('./logger');
 const notify = require('./notify');
 
 const TIMEOUT_MS = 12000;
 const DEFAULT_UPDATE_URL = 'https://api.github.com/repos/kaynai1/steamdeck/releases/latest';
+
+/**
+ * 更新事件（main.js 负责转发到渲染进程）:
+ *   - found        检查到可用新版本 { current, latest, url, notes, ... }
+ *   - dl-progress  安装包下载进度 { got, total, percent }
+ */
+const events = new EventEmitter();
+events.setMaxListeners(20);
 
 let last = null;
 
@@ -159,6 +168,7 @@ async function check(opts = {}) {
   last = result;
   store.setSettings({ updateLastCheckAt: result.at, updateLastVersion: latest });
   logger.info('检查更新', { current, latest, hasUpdate: result.hasUpdate });
+  if (result.hasUpdate) events.emit('found', result);
   if (result.hasUpdate && opts.notify !== false) {
     notify.send(`发现新版本 ${latest}`, `当前 ${current}。点此打开下载页。`, {
       onClick: () => {
@@ -214,11 +224,27 @@ async function downloadUpdate(url) {
   const total = Number(res.headers.get('content-length')) || 0;
   let got = 0;
   const out = fs.createWriteStream(file);
+  // 下载进度：300ms 节流推给渲染进程，让按钮上能看到百分比
+  let lastEmit = 0;
+  const emitProgress = (force) => {
+    const now = Date.now();
+    if (!force && now - lastEmit < 300) return;
+    lastEmit = now;
+    events.emit('dl-progress', {
+      got,
+      total,
+      percent: total ? Math.min(100, Math.round((got / total) * 100)) : 0,
+    });
+  };
   // 流式写入：76MB 的安装包不能一次性进内存
   await new Promise((resolve, reject) => {
     const stream = require('stream');
     const reader = res.body.getReader ? null : null;
     if (res.body && typeof res.body.pipe === 'function') {
+      res.body.on('data', (chunk) => {
+        got += chunk.length;
+        emitProgress(false);
+      });
       res.body.pipe(out);
       res.body.on('error', reject);
       out.on('error', reject);
@@ -233,6 +259,7 @@ async function downloadUpdate(url) {
           const { done, value } = await rd.read();
           if (done) break;
           got += value.length;
+          emitProgress(false);
           out.write(value);
         }
         out.end(resolve);
@@ -241,6 +268,7 @@ async function downloadUpdate(url) {
       }
     })();
   });
+  emitProgress(true);
   logger.info('更新安装包已下载', { file, bytes: got || total });
 
   const launched = /\.exe$/i.test(name)
@@ -262,4 +290,4 @@ function getState() {
   };
 }
 
-module.exports = { check, autoCheck, openDownload, downloadUpdate, getState, compare };
+module.exports = { check, autoCheck, openDownload, downloadUpdate, getState, compare, events };

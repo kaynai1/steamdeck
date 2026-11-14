@@ -896,6 +896,8 @@ if ($('#ordConfirm')) {
 }
 
 /* 版本更新检查 */
+let dlProgressHandler = null; // 弹窗里点「下载并安装」后挂上的进度回调
+
 function updatePillText() {
   const m = $('#updateModal');
   if (!m) return;
@@ -904,10 +906,26 @@ function updatePillText() {
   if (pill && ver) pill.textContent = `v${String(ver).replace(/^v/i, '')}`;
 }
 
-/** 把检查结果渲染到弹窗顶部的状态行 */
+function fmtDlBytes(n) {
+  const v = Number(n) || 0;
+  if (v >= 1024 * 1024) return `${(v / 1024 / 1024).toFixed(1)}MB`;
+  if (v >= 1024) return `${Math.round(v / 1024)}KB`;
+  return `${v}B`;
+}
+
+/** 顶栏红点角标：发现新版本后常亮，提醒还有更新没装 */
+function showUpdateDot(on) {
+  const dot = $('#btnUpdateDot');
+  if (dot) dot.style.display = on ? '' : 'none';
+  const ib = $('#btnUpdate');
+  if (ib) ib.title = on ? '发现新版本！点此查看并安装' : '检查版本更新';
+}
+
+/** 把检查结果渲染到弹窗顶部的状态行（下载按钮带实时进度） */
 function renderUpdateResult(d) {
   const el = $('#updateCheckResult');
   if (!el) return;
+  dlProgressHandler = null;
   if (!d) {
     el.innerHTML = '';
     return;
@@ -917,7 +935,7 @@ function renderUpdateResult(d) {
       `<div style="color:var(--green);font-weight:600;font-size:12.5px;margin-bottom:4px">发现新版本 v${esc(
         d.latest
       )}（当前 v${esc(d.current)}）</div>` +
-      (d.notes ? `<div class="dim2" style="font-size:11.5px;margin-bottom:6px;white-space:pre-wrap">${esc(String(d.notes).slice(0, 500))}</div>` : '') +
+      (d.notes ? `<div class="dim2" style="font-size:11.5px;margin-bottom:6px;white-space:pre-wrap;max-height:120px;overflow:auto">${esc(String(d.notes).slice(0, 800))}</div>` : '') +
       (d.url
         ? `<div style="display:flex;gap:8px;margin-top:6px">
             <button class="btn p" id="updateDlBtn" style="height:30px">下载并安装</button>
@@ -926,11 +944,20 @@ function renderUpdateResult(d) {
         : `<div class="dim2" style="font-size:11.5px">发布页没有找到安装包，可到仓库 Releases 页手动下载</div>`);
     const dl = $('#updateDlBtn');
     if (dl) {
+      let busy = false;
+      dlProgressHandler = (p) => {
+        if (!busy) return;
+        p = p || {};
+        const size = p.total ? `（${fmtDlBytes(p.got)}/${fmtDlBytes(p.total)}）` : '';
+        dl.textContent = p.percent ? `下载中 ${p.percent}%${size}` : `下载中…${size}`;
+      };
       dl.onclick = async () => {
         const btn = dl;
+        busy = true;
         btn.disabled = true;
         btn.textContent = '下载中…（约 76MB）';
         const r = await call(SD.update.download(d.url), { silent: true });
+        busy = false;
         btn.disabled = false;
         btn.textContent = '下载并安装';
         if (!r.ok) {
@@ -975,26 +1002,33 @@ async function runUpdateCheck(btn) {
   }
   const d = r.data || {};
   renderUpdateResult(d);
-  if (d.hasUpdate) toast(`发现新版本 v${d.latest}`);
-  else if (!d.noRelease) toast('已是最新版本');
+  if (d.hasUpdate) {
+    showUpdateDot(true);
+    toast(`发现新版本 v${d.latest}，已弹出更新窗口`);
+  } else if (!d.noRelease) toast('已是最新版本');
   updateRefresh();
 }
 
-function openUpdateModal() {
+/** 打开更新弹窗。传入 prechecked（检查结果）则直接渲染，不再重复联网检查 */
+function openUpdateModal(prechecked) {
   const m = $('#updateModal');
   if (!m) return;
   m.classList.add('on');
   updatePillText();
-  renderUpdateResult(null);
-  log('已打开版本更新检查', 'b');
-  const btn = $('#btnCheckAgain');
-  if (btn) runUpdateCheck(btn);
+  if (prechecked && prechecked.hasUpdate) {
+    renderUpdateResult(prechecked);
+  } else {
+    renderUpdateResult(null);
+    log('已打开版本更新检查', 'b');
+    const btn = $('#btnCheckAgain');
+    if (btn) runUpdateCheck(btn);
+  }
 }
 function closeUpdateModal() {
   const m = $('#updateModal');
   if (m) m.classList.remove('on');
 }
-if ($('#btnUpdate')) $('#btnUpdate').onclick = openUpdateModal;
+if ($('#btnUpdate')) $('#btnUpdate').onclick = () => openUpdateModal();
 if ($('#updateModalClose')) $('#updateModalClose').onclick = closeUpdateModal;
 if ($('#btnUpdateConfirm')) $('#btnUpdateConfirm').onclick = closeUpdateModal;
 if ($('#updateModal')) {
@@ -1002,6 +1036,26 @@ if ($('#updateModal')) {
     if (e.target === $('#updateModal')) closeUpdateModal();
   });
 }
+
+/* 主进程推送：启动自动检查（30 秒后）或任意检查发现新版本 → 自动弹窗 + 顶栏红点 */
+if (SD.update && SD.update.onFound) {
+  SD.update.onFound((d) => {
+    if (!d || !d.hasUpdate) return;
+    showUpdateDot(true);
+    log(`发现新版本 v${d.latest}`, 'b');
+    openUpdateModal(d);
+  });
+  if (SD.update.onDlProgress) {
+    SD.update.onDlProgress((p) => {
+      if (dlProgressHandler) dlProgressHandler(p || {});
+    });
+  }
+}
+/* 启动时若上次检查就有新版（比如上次没装完），直接点亮红点 */
+(async () => {
+  const r = await call(SD.update.state(), { silent: true, noLog: true });
+  if (r.ok && r.data && r.data.last && r.data.last.hasUpdate) showUpdateDot(true);
+})();
 if ($('#btnCheckAgain')) {
   $('#btnCheckAgain').onclick = function () {
     runUpdateCheck(this);
@@ -1644,7 +1698,8 @@ if ($('#updateCheckBtn')) {
     if (!r.ok) {
       toast(netText(r.message) || '检查失败', true);
     } else if (r.data && r.data.hasUpdate) {
-      toast(`发现新版本 ${r.data.latest}`);
+      toast(`发现新版本 ${r.data.latest}，已弹出更新窗口`);
+      openUpdateModal(r.data); // 弹窗里直接「下载并安装」，不用去网页
     } else if (r.data && r.data.noRelease) {
       toast('发布仓库还没有 Release，暂时无法联网检查');
     } else {
