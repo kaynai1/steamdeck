@@ -246,6 +246,12 @@ contextBridge.exposeInMainWorld('api', {
     claim: () => invoke('gog:claim'),
     logout: () => invoke('gog:logout'),
   },
+  plat: {
+    status: () => invoke('plat:status'),
+    statusOne: (platform) => invoke('plat:statusOne', platform),
+    login: (platform) => invoke('plat:login', platform),
+    logout: (platform) => invoke('plat:logout', platform),
+  },
   free: {
     list: (force) => invoke('free:list', force),
   },
@@ -261,7 +267,7 @@ contextBridge.exposeInMainWorld('api', {
     priceHistory: () => invoke('store:priceHistory'),
     playing: () => invoke('store:playing'),
     dailyDeals: (force) => invoke('store:dailyDeals', force),
-    ubiList: (force) => invoke('ubi:list', force),
+    platDeals: (platform, force) => invoke('plat:deals', platform, !!force),
     wishlistList: () => invoke('store:wishlistList'),
     wishlistPrices: (items) => invoke('store:wishlistPrices', items),
     idleWatchAdd: (appId, name) => invoke('store:idleWatchAdd', { appId, name }),

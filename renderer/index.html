@@ -397,6 +397,17 @@
           </div>
           <div id="gogAccList" class="acards"></div>
         </div>
+
+        <!-- 平台账号（Ubisoft / EA / 暴雪战网）：网页登录，Cookie 只留本机 -->
+        <div class="card" style="margin-top:14px;padding:14px">
+          <div class="ch" style="padding:0 0 10px">
+            <div>
+              <div class="t">平台账号 <span class="pill" id="platAccCount" style="font-size:10px;vertical-align:2px"></span></div>
+              <div class="s">Ubisoft / EA / 暴雪战网的网页登录：内嵌窗口完成，Cookie 只留在本机；登录后游戏库平台页与后续领取功能可用</div>
+            </div>
+          </div>
+          <div id="platAccList" class="acards"></div>
+        </div>
       </section>
 
       <!-- 游戏库 -->
@@ -409,6 +420,8 @@
               <button class="tab" data-src="epic">Epic</button>
               <button class="tab" data-src="gog">GOG</button>
               <button class="tab" data-src="ubisoft">Ubisoft</button>
+              <button class="tab" data-src="ea">EA</button>
+              <button class="tab" data-src="blizzard">暴雪</button>
             </div>
             <button class="btn s" id="libFetchOwned" title="登录后自动识别全部已拥有游戏（含未安装），无需手动填 API Key">拉取全部已拥有游戏</button>
             <button class="btn p" id="libScan">扫描游戏库</button>
@@ -428,11 +441,13 @@
           <span class="sp"></span>
           <span class="dim2">登录用内嵌窗口，Cookie 只留在本机</span>
         </div>
-        <div class="tool" id="libUbiBar" style="display:none">
-          <span class="lb">Ubisoft 促销清单</span>
-          <button class="btn p" id="libUbiRefresh">刷新 Ubisoft 促销</button>
+        <div class="tool" id="libPlatBar" style="display:none">
+          <span class="lb" id="libPlatState">平台账号：检测中…</span>
+          <button class="btn s" id="libPlatLogin">登录</button>
+          <button class="btn s" id="libPlatLogout" style="display:none">退出登录</button>
+          <button class="btn p" id="libPlatRefresh">刷新促销</button>
           <span class="sp"></span>
-          <span class="dim2">数据来自 CheapShark 聚合（Uplay 商店，美元报价），无需登录 Ubisoft 账号；游戏库列表与领取见每日促销页的 Ubisoft 标签</span>
+          <span class="dim2">促销精选来自 CheapShark 聚合（美元报价）；账号登录用内嵌窗口，Cookie 只留本机</span>
         </div>
         <div class="tool" id="libSteamTool">
           <div class="tabs" id="libFilter"></div>
@@ -520,6 +535,8 @@
               <button class="tab" data-df="gog">GOG</button>
               <button class="tab" data-df="epic">Epic</button>
               <button class="tab" data-df="ubisoft">Ubisoft</button>
+              <button class="tab" data-df="ea">EA</button>
+              <button class="tab" data-df="blizzard">暴雪</button>
               <button class="tab" data-df="other">其他</button>
             </div>
             <label class="free-only"><input type="checkbox" id="dealHideOwned" /> 隐藏我已有的</label>
@@ -540,7 +557,9 @@
               <button class="tab" data-fp="epic">Epic</button>
               <button class="tab" data-fp="steam">Steam</button>
               <button class="tab" data-fp="gog">GOG</button>
-              <button class="tab" data-fp="ubisoft" title="Ubisoft 限免活动出现时会自动列出（无活动时不占位）">Ubisoft</button>
+              <button class="tab" data-fp="ubisoft">Ubisoft</button>
+              <button class="tab" data-fp="origin">EA</button>
+              <button class="tab" data-fp="battlenet">暴雪战网</button>
             </div>
             <label class="free-only"><input type="checkbox" id="freeGameOnly"> 只看完整游戏</label>
             <button class="btn s" id="freeClaimAll">领取全部 Epic</button>
@@ -875,7 +894,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.74","url":"https://.../SteamDesk-2.6.74-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.74，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.75","url":"https://.../SteamDesk-2.6.75-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.75，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1032,6 +1051,10 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.75 更新特性：</b><br>
+        1. <b>EA 与暴雪战网平台接入</b>：每日促销、免费领取、游戏库、账号管理四处新增两家平台（促销与限免聚合源当前无返回，有活动自动显示）；账号管理新增 Ubisoft / EA / 暴雪战网三平台网页登录卡（内嵌窗口，Cookie 只留本机）；<br>
+        2. <b>修复热门卡片封面未展开</b>：封面改为占满卡片宽度的上置布局（Steam 官方 460:215 比例），封面完整展开不再被裁切压缩；<br>
+        3. <b>修复游戏库平台标签页错乱</b>：点 Ubisoft/EA/暴雪标签时副标题误显示「GOG 库」的问题已修，平台页提供登录态、促销精选与官方商店直达；<br>
         <b>v2.6.74 更新特性：</b><br>
         1. <b>Ubisoft 平台接入</b>：每日促销新增 Ubisoft 标签（Watch Dogs / Far Cry / 刺客信条等育碧折扣，聚合自 CheapShark Uplay 源）；游戏库新增 Ubisoft 标签页（促销清单，无需登录）；免费领取接入 Ubisoft 限免活动源（有活动时自动出现）；<br>
         2. <b>修复热门卡片封面未铺满</b>：封面区域改为 Steam 官方 460:215 固定纵横比，卡片高度统一，封面完整铺开不再被裁切；<br>

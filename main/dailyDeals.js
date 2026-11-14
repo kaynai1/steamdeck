@@ -138,12 +138,15 @@ async function cheapSharkDeals() {
     ['11', 'humble', 10],
     ['15', 'fanatical', 10],
     ['13', 'ubisoft', 14],
+    // EA（Origin→EA App）与暴雪商店：聚合源目前停用中，返回空时安静跳过，恢复收录后自动出数据
+    ['8', 'ea', 12, true],
+    ['31', 'blizzard', 12, true],
   ];
   // CheapShark 不区分本体和 DLC/升级包，按标题把明显不是游戏本体的条目挡掉
   const NON_GAME = /(^|[\s:(])(upgrade|dlc|season pass|soundtrack|expansion|add-?on|beta)([\s:)]|$)/i;
   const out = [];
   const errors = [];
-  for (const [storeId, source, size] of stores) {
+  for (const [storeId, source, size, silentFail] of stores) {
     try {
       const j = await getJson(
         `https://www.cheapshark.com/api/1.0/deals?storeID=${storeId}&pageSize=${size}&sortBy=Deal%20Rating`,
@@ -170,7 +173,8 @@ async function cheapSharkDeals() {
         });
       }
     } catch (e) {
-      errors.push(`${source}：${(e && e.message) || '读取失败'}`);
+      // 停用中的聚合源（EA/暴雪）失败不算错误，恢复收录后自动出数据
+      if (!silentFail) errors.push(`${source}：${(e && e.message) || '读取失败'}`);
       logger.warn('CheapShark 促销读取失败', { source, message: e && e.message });
     }
     await new Promise((r) => setTimeout(r, 300));

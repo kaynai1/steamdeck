@@ -37,7 +37,8 @@ const S = {
   libSource: 'steam',
   epicLib: { items: [], loading: false, accountId: '', at: 0, error: '', partial: false },
   gogLib: { items: [], loading: false, at: 0, error: '', linked: false },
-  ubiLib: { items: [], loading: false, at: 0, error: '' },
+  // 平台促销/登录态（ubisoft / ea / blizzard）：{ items, loading, at, error, linked }
+  platLibs: {},
   logs: [],
   switching: false,
   selling: false,
@@ -747,6 +748,75 @@ async function loadGogAccount() {
 
 if ($('#accGuard')) {
   $('#accGuard').onclick = () => openGuardModal();
+}
+
+/* ------------- 平台账号（Ubisoft / EA / 暴雪战网）卡片与登录 ------------- */
+
+const PLAT_ACC_META = {
+  ubisoft: { label: 'Ubisoft', domain: 'ubisoft.com', grad: 'linear-gradient(135deg,#9BD3FF,#1069C8)' },
+  ea: { label: 'EA', domain: 'ea.com', grad: 'linear-gradient(135deg,#6E7478,#1A1D20)' },
+  blizzard: { label: '暴雪战网', domain: 'battle.net', grad: 'linear-gradient(135deg,#9EC5FF,#092A59)' },
+};
+
+/** 账号管理页：三平台登录态卡片 */
+async function loadPlatAccounts() {
+  const box = $('#platAccList');
+  if (!box) return;
+  const r = await call(SD.plat.status(), { noLog: true, silent: true });
+  const data = (r.ok && r.data) || {};
+  const linked = Object.values(data).filter((x) => x && x.linked).length;
+  if ($('#platAccCount')) $('#platAccCount').textContent = linked ? `${linked}/3 已登录` : '';
+  box.innerHTML = Object.keys(PLAT_ACC_META).map((key) => {
+    const meta = PLAT_ACC_META[key];
+    const st = data[key] || {};
+    return `<div class="acard ${st.linked ? 'on' : ''}">
+      <div class="top">
+        <div class="av2" style="background:${meta.grad}">${esc(meta.label.slice(0, 1))}</div>
+        <div style="min-width:0">
+          <div class="nm">${esc(meta.label)}</div>
+          <div class="sub">${esc(meta.domain)}</div>
+        </div>
+        <div class="st2 ${st.linked ? 'on' : ''}"><span class="dot"></span>${st.linked ? '已登录' : '未登录'}</div>
+      </div>
+      <div class="ast">
+        <div data-copy="${st.linked ? '网页登录态已保存在本机' : '未登录'}" data-copy-label="${esc(meta.label)}登录态" title="点击复制"><div class="k">登录态</div><div class="v">${st.linked ? '保存在本机' : '未登录'}</div></div>
+        <div data-copy="${st.cookieCount || 0} 个 Cookie" data-copy-label="${esc(meta.label)}分区" title="点击复制"><div class="k">本机分区</div><div class="v">${st.cookieCount || 0} 个 Cookie</div></div>
+      </div>
+      <div class="arow">
+        <button class="btn s" data-plat-login="${key}">${st.linked ? '重新登录' : `登录 ${meta.label}`}</button>
+        ${st.linked ? `<button class="btn s" data-plat-logout="${key}" style="margin-left:auto">退出登录</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-plat-login]').forEach((b) => {
+    b.onclick = async () => {
+      const key = b.dataset.platLogin;
+      const meta = PLAT_ACC_META[key];
+      toast(`已打开 ${meta.label} 登录窗口，登录完成后自动关闭`);
+      const r2 = await call(SD.plat.login(key), { noLog: true, silent: true });
+      if (r2.ok) {
+        toast(`${meta.label} 已登录`);
+      } else if (!/已关闭/.test(r2.message || '')) {
+        toast(r2.message || '登录失败', true);
+      }
+      loadPlatAccounts();
+      // 游戏库平台页如果正开着，同步登录态
+      if (S.libSource === key) {
+        platState(key).linked = !!(r2.ok && r2.data && r2.data.linked);
+        renderPlatBar();
+      }
+    };
+  });
+  box.querySelectorAll('[data-plat-logout]').forEach((b) => {
+    b.onclick = async () => {
+      const key = b.dataset.platLogout;
+      await call(SD.plat.logout(key), { noLog: true, silent: true });
+      if (S.platLibs[key]) S.platLibs[key].linked = false;
+      toast(`已退出${PLAT_ACC_META[key].label}登录`);
+      loadPlatAccounts();
+      if (S.libSource === key) renderPlatBar();
+    };
+  });
 }
 
 /* 导入令牌弹窗：文件选择只是入口，真正落盘走同一条 link() 路径 */
@@ -6938,8 +7008,8 @@ function renderForeignLib() {
   if (!box) return;
   box.className = 'ggrid portrait';
   const src = S.libSource;
-  // Ubisoft 标签页：促销清单结构（title/image/discount），单独渲染
-  if (src === 'ubisoft') return renderUbiLib();
+  // 平台页（Ubisoft / EA / 暴雪）：登录态 + 促销精选，单独渲染
+  if (PLAT_META[src]) return renderPlatLib(src);
   const st = src === 'epic' ? S.epicLib : S.gogLib;
   const q = S.libQuery.trim().toLowerCase();
   let list = st.items || [];
@@ -7000,7 +7070,7 @@ function setLibSource(src) {
   const isSteam = src === 'steam';
   if ($('#libEpicBar')) $('#libEpicBar').style.display = src === 'epic' ? '' : 'none';
   if ($('#libGogBar')) $('#libGogBar').style.display = src === 'gog' ? '' : 'none';
-  if ($('#libUbiBar')) $('#libUbiBar').style.display = src === 'ubisoft' ? '' : 'none';
+  if ($('#libPlatBar')) $('#libPlatBar').style.display = PLAT_META[src] ? '' : 'none';
   if ($('#libFilter')) $('#libFilter').style.display = isSteam ? '' : 'none';
   if ($('#libShape')) $('#libShape').style.display = isSteam ? '' : 'none';
   if ($('#libFetchOwned')) $('#libFetchOwned').style.display = isSteam ? '' : 'none';
@@ -7024,13 +7094,15 @@ function setLibSource(src) {
     }
     return;
   }
-  if (src === 'ubisoft') {
-    $('#libSub').textContent = S.ubiLib.items.length
-      ? `Ubisoft 促销 · ${S.ubiLib.items.length} 款在售`
-      : '正在读取 Ubisoft（Uplay）促销清单…';
+  if (PLAT_META[src]) {
+    renderPlatBar();
+    const st = platState(src);
+    $('#libSub').textContent = st.error && !(st.items || []).length
+      ? `${PLAT_META[src].label} 促销读取失败`
+      : `${PLAT_META[src].label} 促销精选 · ${(st.items || []).length} 款在售`;
     renderForeignLib();
-    if (!S.ubiLib.items.length && !S.ubiLib.loading) {
-      loadUbiLib();
+    if (!(st.items || []).length && !st.loading) {
+      loadPlatLib(src);
     }
     return;
   }
@@ -7083,77 +7155,148 @@ async function loadGogStatus() {
   return S.gogLib.linked;
 }
 
-/* ------------------------- Ubisoft（Uplay）促销清单 ------------------------- */
+/* ------------------- 平台页（Ubisoft / EA / 暴雪战网） -------------------
+ * 这三家都没有公开免登录的库接口，页面提供：
+ *   1. 平台账号登录态（内嵌窗口网页登录，Cookie 只留本机分区）；
+ *   2. 促销精选（CheapShark 聚合，美元报价，每日自动更新）；
+ *   3. 官方商店直达。
+ * 明确标注「促销精选」，不再用促销清单冒充游戏库。
+ */
 
-/** 渲染 Ubisoft 促销卡：横版封面 + 名称 + 折扣价 + 打开商店页 */
-function renderUbiLib() {
+const PLAT_META = {
+  ubisoft: { label: 'Ubisoft', short: 'Uplay' },
+  ea: { label: 'EA', short: 'EA App' },
+  blizzard: { label: '暴雪战网', short: '战网' },
+};
+
+function platState(platform) {
+  if (!S.platLibs[platform]) {
+    S.platLibs[platform] = { items: [], loading: false, at: 0, error: '', linked: false, empty: false };
+  }
+  return S.platLibs[platform];
+}
+
+/** 平台工具条（登录态 + 登录/退出 + 刷新促销）随当前平台刷新 */
+function renderPlatBar() {
+  const platform = S.libSource;
+  if (!PLAT_META[platform]) return;
+  const meta = PLAT_META[platform];
+  const st = platState(platform);
+  const state = $('#libPlatState');
+  if (state) {
+    state.innerHTML = `${esc(meta.label)}账号：${
+      st.linked ? '<b style="color:var(--green)">已登录</b>' : '<span style="color:var(--dim)">未登录</span>'
+    }`;
+  }
+  const login = $('#libPlatLogin');
+  if (login) {
+    login.textContent = `登录 ${meta.label}`;
+    login.style.display = st.linked ? 'none' : '';
+  }
+  const logout = $('#libPlatLogout');
+  if (logout) {
+    logout.textContent = `退出${meta.label}`;
+    logout.style.display = st.linked ? '' : 'none';
+  }
+}
+
+/** 渲染平台促销精选卡 */
+function renderPlatLib(platform) {
   const box = $('#libBody');
   if (!box) return;
-  const st = S.ubiLib;
+  const meta = PLAT_META[platform] || { label: platform, short: platform };
+  const st = platState(platform);
   const q = S.libQuery.trim().toLowerCase();
   let list = st.items || [];
   if (q) list = list.filter((g) => String(g.title || '').toLowerCase().includes(q));
 
   if (st.loading && !list.length) {
-    box.innerHTML = '<div class="empty" style="grid-column:1/-1"><b>正在读取 Ubisoft（Uplay）促销清单…</b>数据来自 CheapShark 聚合接口，美元报价。</div>';
+    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>正在读取${esc(meta.label)}促销…</b>数据来自 CheapShark 聚合接口（美元报价）。</div>`;
     return;
   }
   if (!list.length) {
-    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>${st.error ? '读取失败' : '暂时没有促销条目'}</b>${
-      st.error || 'Ubisoft 商店当前没有符合条件的折扣商品；也可能是聚合源暂时抽风，稍后点「刷新」再试。'
-    }</div>`;
+    const reason = st.empty
+      ? `${meta.label} 聚合源暂无促销返回（EA App 与暴雪商店暂未被聚合收录，恢复后自动显示）。可点上方「登录」保存账号态，后续功能将直接可用。`
+      : st.error || `${meta.label} 商店当前没有符合条件的折扣商品；也可能是聚合源暂时抽风，稍后点「刷新促销」再试。`;
+    box.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>${esc(meta.label)} · 促销精选</b>${esc(reason)}</div>`;
     return;
   }
 
-  box.innerHTML = list.slice(0, LIB_CAP).map((g) => {
-    const fb = String(g.title || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
-    const zh = g.steamAppId ? zhOfApp(g.steamAppId) : '';
-    return `<div class="gcard portrait" title="${esc(g.title)}">
+  const header = `<div style="grid-column:1/-1;display:flex;align-items:baseline;gap:8px;padding:2px 2px 0">
+      <span style="font-size:13px;font-weight:650">促销精选</span>
+      <span class="dim2" style="font-size:11px">每日自动更新 · ${list.length} 款在售 · 美元报价</span>
+    </div>`;
+  box.innerHTML =
+    header +
+    list.slice(0, LIB_CAP).map((g) => {
+      const fb = String(g.title || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
+      const zh = g.steamAppId ? zhOfApp(g.steamAppId) : '';
+      return `<div class="gcard portrait" title="${esc(g.title)}">
       <div class="cov">
         ${g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />` : ''}
         <span class="covfb">${esc(fb)}</span>
-        <span class="plat">Ubisoft</span>
+        <span class="plat">${esc(meta.label)}</span>
       </div>
       <div class="ib2">
         <div class="nm">${esc(g.title)}</div>
         ${zh ? `<div class="nm-zh" title="${esc(zh)}">${esc(zh)}</div>` : ''}
         <div class="meta">
-          <span class="gtag">Ubisoft Connect</span>
+          <span class="gtag">${esc(meta.short)}</span>
           <span class="gtag" style="color:var(--green)">-${g.discount}%</span>
+          <span class="gtag">$${Number(g.salePrice).toFixed(2)}</span>
         </div>
       </div>
       <div class="gact-row">
         <button class="btn s gact-btn" data-store-url="${esc(g.url)}">打开商店页</button>
       </div>
     </div>`;
-  }).join('');
+    }).join('');
   lazyPaintCovers(box);
   updateLibCount(list.length);
 }
 
-async function loadUbiLib(force) {
-  const st = S.ubiLib;
+/** 平台页副标题 */
+function updatePlatSub(platform) {
+  const meta = PLAT_META[platform];
+  const st = platState(platform);
+  if (!meta) return;
+  $('#libSub').textContent = st.error && !(st.items || []).length
+    ? `${meta.label} 促销读取失败`
+    : `${meta.label} 促销精选 · ${(st.items || []).length} 款在售`;
+}
+
+async function loadPlatLib(platform, force) {
+  const st = platState(platform);
+  // 登录态顺手刷一次（账号管理里登录后回到本页也会体现）
+  call(SD.plat.statusOne(platform), { noLog: true, silent: true })
+    .then((r) => {
+      if (r.ok && r.data) {
+        st.linked = !!r.data.linked;
+        renderPlatBar();
+      }
+    })
+    .catch(() => {});
   if (st.loading) return;
   st.loading = true;
   st.error = '';
-  $('#libSub').textContent = '正在读取 Ubisoft（Uplay）促销清单…';
-  renderUbiLib();
-  const r = await call(SD.store.ubiList(!!force), { noLog: true, silent: true });
+  $('#libSub').textContent = `正在读取${PLAT_META[platform].label}促销…`;
+  renderPlatLib(platform);
+  const r = await call(SD.store.platDeals(platform, !!force), { noLog: true, silent: true });
   st.loading = false;
   if (r.ok && r.data && Array.isArray(r.data.items)) {
     st.items = r.data.items;
+    st.empty = !!r.data.empty && !st.items.length;
     st.at = r.data.at || Date.now();
-    $('#libSub').textContent = `Ubisoft 促销 · ${st.items.length} 款在售`;
   } else {
     st.error = r.message || '读取失败';
-    $('#libSub').textContent = 'Ubisoft 促销读取失败';
-    toast(st.error, true);
+    toast(`${PLAT_META[platform].label}促销读取失败：${st.error}`, true);
   }
-  renderUbiLib();
+  renderPlatLib(platform);
+  updatePlatSub(platform);
   // 中文译名：有 Steam AppID 的走词典/缓存
   ensureAppZh((st.items || []).map((g) => g.steamAppId).filter(Boolean))
     .then((hasNew) => {
-      if (hasNew) renderUbiLib();
+      if (hasNew && S.libSource === platform) renderPlatLib(platform);
     })
     .catch(() => {});
 }
@@ -7214,7 +7357,33 @@ if ($('#libSource')) {
     };
   }
   if ($('#libGogFetch')) $('#libGogFetch').onclick = () => loadGogLib();
-  if ($('#libUbiRefresh')) $('#libUbiRefresh').onclick = () => loadUbiLib(true);
+  // 平台页（Ubisoft / EA / 暴雪）：登录 / 退出 / 刷新促销
+  if ($('#libPlatLogin')) {
+    $('#libPlatLogin').onclick = async () => {
+      const platform = S.libSource;
+      if (!PLAT_META[platform]) return;
+      toast(`已打开 ${PLAT_META[platform].label} 登录窗口，登录完成后自动关闭`);
+      const r = await call(SD.plat.login(platform), { noLog: true, silent: true });
+      if (r.ok && r.data) {
+        platState(platform).linked = !!r.data.linked;
+        toast(`${PLAT_META[platform].label} 已登录`);
+        renderPlatBar();
+      } else if (!/已关闭/.test(r.message || '')) {
+        toast(r.message || '登录失败', true);
+      }
+    };
+  }
+  if ($('#libPlatLogout')) {
+    $('#libPlatLogout').onclick = async () => {
+      const platform = S.libSource;
+      if (!PLAT_META[platform]) return;
+      await call(SD.plat.logout(platform), { silent: true });
+      platState(platform).linked = false;
+      renderPlatBar();
+      toast(`已退出${PLAT_META[platform].label}登录`);
+    };
+  }
+  if ($('#libPlatRefresh')) $('#libPlatRefresh').onclick = () => loadPlatLib(S.libSource, true);
 }
 
 if ($('#libBody')) {
@@ -7245,6 +7414,15 @@ if ($('#libBody')) {
 function updateLibCount(filtered) {
   const sub = $('#libSub');
   if (!sub) return;
+  if (PLAT_META[S.libSource]) {
+    const st = platState(S.libSource);
+    const total = (st.items || []).length;
+    const label = PLAT_META[S.libSource].label;
+    sub.textContent = S.libQuery.trim()
+      ? `${label} 促销 · 匹配 ${filtered} / ${total} 款`
+      : `${label} 促销精选 · ${total} 款在售`;
+    return;
+  }
   if (S.libSource !== 'steam') {
     const st = S.libSource === 'epic' ? S.epicLib : S.gogLib;
     const total = (st.items || []).length;
@@ -8839,9 +9017,10 @@ async function boot() {
   setSwitchState('空闲', '切换会关闭 Steam 客户端后重写配置');
   status('就绪');
 
-  // Epic / GOG 登录态（免费领取页用）：失败不影响主流程
+  // Epic / GOG / 平台（Ubisoft/EA/暴雪）登录态：失败不影响主流程
   loadEpicStatus().catch(() => {});
   loadGogAccount().catch(() => {});
+  loadPlatAccounts().catch(() => {});
   loadPriceAlerts().catch(() => {});
 
   if (!S.accounts.length) {
@@ -9335,6 +9514,8 @@ const DEAL_PLAT = {
   humble: ['Humble', 'humble'],
   fanatical: ['Fanatical', 'fanatical'],
   ubisoft: ['Ubisoft', 'ubisoft'],
+  ea: ['EA', 'ea'],
+  blizzard: ['暴雪战网', 'blizzard'],
 };
 
 function dealEndsText(ts) {
@@ -9396,10 +9577,10 @@ function renderDeals() {
   // Steam 的首页特惠放前面，GOG 折扣榜跟在后面，其他平台最后；各自内部已按折扣排好
   const all = [...(dealData.steam || []), ...(dealData.gog || []), ...(dealData.other || [])];
   let list = all;
-  if (dealFilter === 'gog' || dealFilter === 'steam' || dealFilter === 'epic' || dealFilter === 'ubisoft') {
+  if (['gog', 'steam', 'epic', 'ubisoft', 'ea', 'blizzard'].includes(dealFilter)) {
     list = all.filter((x) => x.source === dealFilter);
   } else if (dealFilter === 'other') {
-    list = all.filter((x) => x.source === 'humble' || x.source === 'fanatical');
+    list = all.filter((x) => ['humble', 'fanatical'].includes(x.source));
   }
   if ($('#dealHideOwned') && $('#dealHideOwned').checked) {
     list = list.filter((d) => !(d.source === 'steam' && dealOwned.has(Number(d.appId))));
@@ -9415,12 +9596,15 @@ function renderDeals() {
   }
   if ($('#dealSub')) {
     const other = dealData.other || [];
+    const KNOWN = ['epic', 'ubisoft', 'ea', 'blizzard'];
     const bits = [
       `Steam ${(dealData.steam || []).length}`,
       `GOG ${(dealData.gog || []).length}`,
       `Epic ${other.filter((x) => x.source === 'epic').length}`,
       `Ubisoft ${other.filter((x) => x.source === 'ubisoft').length}`,
-      `其他 ${other.filter((x) => x.source !== 'epic' && x.source !== 'ubisoft').length}`,
+      `EA ${other.filter((x) => x.source === 'ea').length}`,
+      `暴雪 ${other.filter((x) => x.source === 'blizzard').length}`,
+      `其他 ${other.filter((x) => !KNOWN.includes(x.source)).length}`,
       `区服 ${dealData.region || 'CN'}`,
     ];
     if (dealWishStatus === 'fail') bits.push('愿望单未公开，未标记');
@@ -9820,7 +10004,7 @@ document.addEventListener('click', async (e) => {
  * 数据在主进程里拉（Epic 官方接口 + GamerPower 聚合），这里只管展示。
  * 只做发现和跳转，不代领：三个平台的领取都要各自的登录态和结账流程。
  */
-const FREE_PLAT = { epic: 'Epic', steam: 'Steam', gog: 'GOG', ubisoft: 'Ubisoft' };
+const FREE_PLAT = { epic: 'Epic', steam: 'Steam', gog: 'GOG', ubisoft: 'Ubisoft', origin: 'EA', battlenet: '暴雪战网' };
 const FREE_TYPE = { DLC: '资料片', 'Early Access': '抢先体验', Beta: '测试', Playtest: '测试', Loot: '道具' };
 
 /** 截止时间写成「截止 11月13日 00:00」，和商店页的写法一致 */

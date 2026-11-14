@@ -1171,7 +1171,15 @@ ipcMain.handle('store:playing', wrap(async () => require('./main/playing').curre
 ipcMain.handle('store:dailyDeals', wrap(async (force) => require('./main/dailyDeals').all({ force: !!force })));
 
 // Ubisoft（Uplay）促销清单：游戏库 Ubisoft 标签页用
-ipcMain.handle('ubi:list', wrap(async (force) => require('./main/ubiDeals').list(!!force)));
+ipcMain.handle('plat:deals', wrap(async (platform, force) =>
+  require('./main/ubiDeals').list(platform, !!force)));
+
+/* 平台网页登录（Ubisoft / EA / 暴雪战网）：账号管理与游戏库平台页共用 */
+ipcMain.handle('plat:status', wrap(async () => require('./main/platformLogin').statusAll()));
+ipcMain.handle('plat:statusOne', wrap(async (platform) => require('./main/platformLogin').status(platform)));
+ipcMain.handle('plat:login', wrap(async (platform) =>
+  require('./main/platformLogin').openLoginWindow(platform, win)));
+ipcMain.handle('plat:logout', wrap(async (platform) => require('./main/platformLogin').logout(platform)));
 
 ipcMain.handle('store:wishlistList', wrap(async () => require('./main/wishlist').list()));
 ipcMain.handle('store:wishlistPrices', wrap(async (items) => require('./main/wishlist').prices(items)));

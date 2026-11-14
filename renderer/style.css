@@ -1405,6 +1405,8 @@ body:not(.light) .badge-skin { color: #E57373; }
 .fg-plat.humble { background: rgba(160,40,40,.86); }
 .fg-plat.fanatical { background: rgba(150,70,20,.88); }
 .fg-plat.ubisoft { background: rgba(16,96,168,.88); }
+.fg-plat.ea, .fg-plat.origin { background: rgba(22,26,32,.88); }
+.fg-plat.blizzard, .fg-plat.battlenet { background: rgba(9,42,89,.92); }
 /* 目标价输入：只在 Steam 条目上出现 */
 .fg-target {
   display: flex; align-items: center; gap: 6px;
@@ -2456,12 +2458,13 @@ input:focus, select:focus, textarea:focus {
 .idle-game-drop b { color: var(--text); font-weight: 600; }
 
 /* ============================================================
-   2.6.72 挂机热门卡：横版封面卡片（与游戏库/统计页同款语言）
-   左侧 Steam 横版封面（含加载失败回退字与角标），右侧信息与操作。
+   2.6.75 挂机热门卡：封面上置竖版卡片（封面完整展开）
+   封面占满卡片宽度并按 Steam 官方 460:215 比例自动定高，
+   图片 object-fit:cover 在同比例容器里零裁切完整显示。
    ============================================================ */
 .idle-game-card.cover {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: stretch;
   gap: 0;
   padding: 0;
@@ -2469,13 +2472,10 @@ input:focus, select:focus, textarea:focus {
 }
 .idle-game-card.cover .ig-cov {
   position: relative;
-  width: 170px;
-  flex: none;
-  background: var(--subtle-card);
-  border-right: 1px solid var(--line);
-  /* 固定纵横比（Steam 官方 header 460:215），卡片高度统一、封面永远铺满不裁切漂移 */
+  width: 100%;
   aspect-ratio: 460 / 215;
-  align-self: stretch;
+  background: var(--subtle-card);
+  border-bottom: 1px solid var(--line);
 }
 .idle-game-card.cover .ig-cov img {
   position: absolute;
@@ -2553,8 +2553,8 @@ input:focus, select:focus, textarea:focus {
 .idle-game-card.cover .ig-acts { margin-top: auto; display: flex; gap: 6px; padding-top: 4px; }
 .idle-game-card.cover .ig-acts .btn { height: 27px; }
 
-/* 2 列为主（与游戏库横版卡同节奏），窄窗口自动回落 */
-#idleGamesList { grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)) !important; }
+/* 3 列网格（封面完整展开的竖版卡），窄窗口自动回落 */
+#idleGamesList { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; }
 @media (max-width: 1000px) {
   #idleGamesList { grid-template-columns: 1fr !important; }
 }

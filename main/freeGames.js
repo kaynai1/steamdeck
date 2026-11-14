@@ -264,6 +264,18 @@ async function fetchAll() {
         /* Ubisoft 平时无活动（接口返回 201 status=0），不算错误，静默跳过 */
         return [];
       }),
+    // EA（origin）限免活动：同样平时无活动，有活动时自动出现
+    getJsonRetry('https://www.gamerpower.com/api/giveaways?platform=origin', 15000)
+      .then((j) => parseGamerPower(j, 'origin'))
+      .catch(() => {
+        return [];
+      }),
+    // 暴雪战网（battlenet）限免活动
+    getJsonRetry('https://www.gamerpower.com/api/giveaways?platform=battlenet', 15000)
+      .then((j) => parseGamerPower(j, 'battlenet'))
+      .catch(() => {
+        return [];
+      }),
   ];
   const groups = await Promise.all(jobs);
   const items = mergeItems(groups);
