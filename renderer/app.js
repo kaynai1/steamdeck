@@ -8934,14 +8934,12 @@ function idleCard(g, meta) {
         .map((c) => `${esc(c.name)} ${esc(c.price)}`)
         .join(' · ')}</b></div>`
     : '';
-  const metaLine = [
+  const metaBits = [
     meta && meta.category ? meta.category : '挂机掉落',
     meta && meta.status ? meta.status : '',
     meta && meta.releaseDate && meta.releaseDate !== '待定' ? `发售 ${meta.releaseDate}` : '',
     g.total ? `市场条目约 ${Number(g.total).toLocaleString('zh-CN')}` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  ].filter(Boolean);
   const dropLine = meta && meta.dropInterval
     ? `<div class="idle-game-drop"><span>掉落周期：</span><b>${esc(meta.dropInterval)}</b></div>`
     : '';
@@ -8962,37 +8960,40 @@ function idleCard(g, meta) {
   const watchBtn = g.builtin
     ? ''
     : `<button class="btn s" data-idle-unwatch="${esc(String(g.appId))}" title="从监控列表移除">移除</button>`;
-  return `<div class="idle-game-card">
-    <div class="idle-game-header">
-      <div style="flex:1;min-width:0">
-        <div class="idle-game-title">
-          <span>${esc(g.name)}</span>
-          ${g.builtin
-            ? (meta && meta.statusTag === 'hot'
-                ? '<span class="pill b">热门</span>'
-                : '<span class="pill g">内置</span>')
-            : '<span class="pill b">已监控</span>'}
-          ${playingAppId && Number(g.appId) === playingAppId
-            ? '<span class="pill" style="background:rgba(64,180,120,.18);color:var(--green)">正在玩</span>'
-            : ''}
-        </div>
-        <div class="idle-game-meta">${esc(metaLine)}</div>
+  // 封面回退文字：取名称前两个字符
+  const fb = (g.name || '?').replace(/[^A-Za-z0-9\u4e00-\u9fa5]/g, '').slice(0, 2).toUpperCase() || '?';
+  const pill = g.builtin
+    ? (meta && meta.statusTag === 'hot' ? '<span class="pill b">热门</span>' : '<span class="pill g">内置</span>')
+    : '<span class="pill b">已监控</span>';
+  return `<div class="idle-game-card cover" title="${esc((g.name || '') + ' · AppID ' + g.appId)}">
+    <div class="ig-cov">
+      <img src="sdimg://app/${esc(String(g.appId))}/header.jpg" alt="${esc(g.name)}" loading="lazy" decoding="async" onerror="SDCoverErr(this)" />
+      <span class="covfb">${esc(fb)}</span>
+      ${meta && meta.tag === 'new' ? '<span class="ig-badge new">新品</span>' : (meta && meta.statusTag === 'hot' ? '<span class="ig-badge hot">热销</span>' : '')}
+      ${playingAppId && Number(g.appId) === playingAppId ? '<span class="ig-badge playing">正在玩</span>' : ''}
+    </div>
+    <div class="ig-body">
+      <div class="ig-head">
+        <span class="ig-name">${esc(g.name)}</span>
+        ${pill}
       </div>
-      <div style="display:flex;gap:4px;flex:none">
+      ${metaBits.length ? `<div class="ig-meta">${esc(metaBits.join(' · '))}</div>` : ''}
+      <div class="ig-price">
+        <span class="lbl">最低在售</span>
+        <b class="price">${esc(lowText)}</b>
+        ${g.lowestName ? `<span class="low-nm" title="${esc(g.lowestName)}">${esc(g.lowestName)}</span>` : ''}
+      </div>
+      ${estLine}
+      ${cheap}
+      ${dropLine}
+      ${sparkLine}
+      ${errLine}
+      <div class="ig-acts">
         <button class="btn s" data-market-jump="${esc(String(g.appId))}" title="打开 Steam 社区市场">市场</button>
         <button class="btn s" data-store-jump="${esc(String(g.appId))}">商店</button>
         ${watchBtn}
       </div>
     </div>
-    <div class="idle-game-desc" style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
-      <span>最低在售：<b class="price">${esc(lowText)}</b></span>
-      <span style="color:var(--dim);font-size:11px">${g.lowestName ? esc(g.lowestName) : ''}</span>
-    </div>
-    ${estLine}
-    ${cheap}
-    ${dropLine}
-    ${sparkLine}
-    ${errLine}
   </div>`;
 }
 

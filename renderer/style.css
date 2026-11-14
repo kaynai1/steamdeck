@@ -2454,6 +2454,107 @@ input:focus, select:focus, textarea:focus {
 }
 .idle-game-drop b { color: var(--text); font-weight: 600; }
 
+/* ============================================================
+   2.6.72 挂机热门卡：横版封面卡片（与游戏库/统计页同款语言）
+   左侧 Steam 横版封面（含加载失败回退字与角标），右侧信息与操作。
+   ============================================================ */
+.idle-game-card.cover {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.idle-game-card.cover .ig-cov {
+  position: relative;
+  width: 170px;
+  flex: none;
+  background: var(--subtle-card);
+  border-right: 1px solid var(--line);
+}
+.idle-game-card.cover .ig-cov img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.idle-game-card.cover .covfb {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--dim);
+  letter-spacing: .05em;
+}
+.idle-game-card.cover .ig-cov img[src] + .covfb { display: none; }
+.idle-game-card.cover .ig-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #fff;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+.idle-game-card.cover .ig-badge.hot { background: rgba(220, 92, 66, .92); }
+.idle-game-card.cover .ig-badge.new { background: rgba(37, 99, 235, .92); }
+.idle-game-card.cover .ig-badge.playing { background: rgba(64, 180, 120, .92); top: 8px; left: auto; right: 8px; }
+.idle-game-card.cover .ig-body {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.idle-game-card.cover .ig-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.idle-game-card.cover .ig-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.idle-game-card.cover .ig-meta { font-size: 10.5px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.idle-game-card.cover .ig-price {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+  row-gap: 3px;
+}
+.idle-game-card.cover .ig-price .lbl { font-size: 10.5px; color: var(--dim); flex: none; }
+.idle-game-card.cover .ig-price b.price { font-size: 13.5px; font-weight: 750; color: var(--text); font-variant-numeric: tabular-nums; }
+.idle-game-card.cover .ig-price .low-nm {
+  font-size: 10.5px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.idle-game-card.cover .ig-acts { margin-top: auto; display: flex; gap: 6px; padding-top: 4px; }
+.idle-game-card.cover .ig-acts .btn { height: 27px; }
+
+/* 2 列为主（与游戏库横版卡同节奏），窄窗口自动回落 */
+#idleGamesList { grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)) !important; }
+@media (max-width: 1000px) {
+  #idleGamesList { grid-template-columns: 1fr !important; }
+}
+
 /* 滑块与原生控件跟随强调色 */
 input[type=range] { accent-color: var(--blue); }
 

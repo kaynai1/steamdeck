@@ -1,7 +1,7 @@
 {
   "name": "steamdesk",
   "productName": "SteamDesk",
-  "version": "2.6.71",
+  "version": "2.6.72",
   "description": "Steam 多账号管理、游戏库识别、饰品行情对照与批量上架工具（本地运行，不接触密码）",
   "main": "main.js",
   "author": "SteamDesk",
