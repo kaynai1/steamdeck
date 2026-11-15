@@ -7246,7 +7246,7 @@ function renderPlatLib(platform) {
   let noApiNote = '';
   if (platform !== 'ubisoft') {
     noApiNote = `<div style="grid-column:1/-1;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;font-size:11.5px;color:var(--muted);line-height:1.7;background:var(--subtle-card)">
-      <b style="color:var(--text)">关于${esc(meta.label)}账号游戏库：</b>EA App 与暴雪战网没有公开的账号库接口（两家均以桌面客户端为主，网页端不提供「我的游戏」清单），暂时无法像 Steam / Epic / GOG 那样在软件里扫描你账号拥有的游戏。可以点上方「登录」保存账号登录态（后续接口可用时直接启用）；下方促销精选会照常每日更新。
+      <b style="color:var(--text)">为什么${esc(meta.label)}没有像 Steam 那样的「我的游戏」：</b>Steam / Epic / GOG / Ubisoft 的账号库都有官方公开接口，登录就能拉取；但 EA 与暴雪战网<b>官方不提供账号库接口</b>——游戏库数据只在它们的桌面客户端内部（EA App / 战网客户端），网页端没有「我的游戏」清单（实测：EA 旧的 Origin 接口已随 Origin 关停而销毁，暴雪未开放）。所以这里暂时无法扫描你账号拥有的游戏，不是没接，是官方不存在这个接口；页面因此展示促销精选与官方商店直达，日后 EA / 暴雪开放接口会第一时间跟进。
     </div>`;
   }
 

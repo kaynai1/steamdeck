@@ -83,18 +83,32 @@ function saveAccount(a) {
   store.setSettings({ ubiAccount: a });
 }
 
+/** 网络类错误的人话提示：育碧接口域名国内直连不通是常态，指向代理设置 */
+function netErrMsg(e) {
+  const raw = (e && e.message) || String(e || '');
+  if (/NAME_NOT_RESOLVED|ERR_NAME|ERR_CONNECTION|TIMED_OUT|ERR_TIMED_OUT|Failed to fetch|reset|refused|aborted/i.test(raw)) {
+    return '连不上育碧服务器（' + raw + '）。育碧接口域名国内直连不通是常态，需要代理才能登录：① 开启 Clash / v2rayN 并打开「系统代理」；② 或在软件「设置 → 登录窗口代理」里填代理端口（如 127.0.0.1:7890）；配置好后重新点「登录」。（UU 加速器是进程级、只加速 Steam 客户端，对育碧接口无效）';
+  }
+  return raw;
+}
+
 /** 邮箱+密码登录。2FA 账号返回 { need2fa: true, raw }，等待验证码提交。 */
 async function loginPassword(email, password) {
   const basic = Buffer.from(`${String(email || '')}:${String(password || '')}`).toString('base64');
-  const res = await ubiFetch(`${API_HOST}/v3/profiles/sessions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Ubi-AppId': UBI_APP_ID,
-      Authorization: `Basic ${basic}`,
-    },
-    body: JSON.stringify({ rememberMe: true }),
-  });
+  let res;
+  try {
+    res = await ubiFetch(`${API_HOST}/v3/profiles/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Ubi-AppId': UBI_APP_ID,
+        Authorization: `Basic ${basic}`,
+      },
+      body: JSON.stringify({ rememberMe: true }),
+    });
+  } catch (e) {
+    throw new Error(netErrMsg(e));
+  }
   const text = await res.text();
   let json = null;
   try {
@@ -130,14 +144,19 @@ async function loginPassword(email, password) {
 /** 提交 2FA 验证码（ Ubisoft 常见路径 /v3/profiles/sessions/2fa/ ；
  *  不同时期字段不同，失败时把原始返回带回来便于修正） */
 async function login2fa(code) {
-  const res = await ubiFetch(`${API_HOST}/v3/profiles/sessions/2fa/${encodeURIComponent(String(code || ''))}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Ubi-AppId': UBI_APP_ID,
-    },
-    body: JSON.stringify({ rememberMe: true }),
-  });
+  let res;
+  try {
+    res = await ubiFetch(`${API_HOST}/v3/profiles/sessions/2fa/${encodeURIComponent(String(code || ''))}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Ubi-AppId': UBI_APP_ID,
+      },
+      body: JSON.stringify({ rememberMe: true }),
+    });
+  } catch (e) {
+    throw new Error(netErrMsg(e));
+  }
   const text = await res.text();
   let json = null;
   try {
@@ -174,12 +193,17 @@ async function fetchLibrary(force) {
   if (!acc) return { loggedIn: false, items: [] };
   if (!force && libCache && Date.now() - libCache.at < LIB_TTL) return { loggedIn: true, items: libCache.items, fromCache: true };
 
-  const res = await ubiFetch(`${OWNED_HOST}/v1/profiles/${acc.userId}/ownedgames?locale=zh-CN`, {
-    headers: {
-      'Ubi-AppId': UBI_APP_ID,
-      Authorization: `Ubi_v1 t=${acc.ticket}`,
-    },
-  });
+  let res;
+  try {
+    res = await ubiFetch(`${OWNED_HOST}/v1/profiles/${acc.userId}/ownedgames?locale=zh-CN`, {
+      headers: {
+        'Ubi-AppId': UBI_APP_ID,
+        Authorization: `Ubi_v1 t=${acc.ticket}`,
+      },
+    });
+  } catch (e) {
+    throw new Error(netErrMsg(e));
+  }
   if (res.status === 401) {
     // ticket 过期：提示重新登录
     return { loggedIn: false, expired: true, items: [] };
