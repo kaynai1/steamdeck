@@ -255,17 +255,30 @@ async function loginWeb(parent) {
     win.webContents.on('will-navigate', (_e, url) => { handleUrl(url); });
     win.webContents.on('did-navigate', (_e, url) => { handleUrl(url); });
     win.webContents.on('did-navigate-in-page', (_e, url) => { handleUrl(url); });
-    // 风控页检测：育碧反爬拦截时页面显示「访问暂时受限 / 我不是机器人」，直接给出人话指引
+    // 风控页检测：注入提示条但不关窗——保留窗口给用户完成人机验证的机会，
+    // 验证通过官方页面会继续跳转 change_domain，届时正常捕获票据
     win.webContents.on('did-finish-load', () => {
       try {
-        if (win.isDestroyed()) return;
+        if (settled || win.isDestroyed()) return;
         win.webContents.executeJavaScript(`(document.title||'')+'|'+((document.body&&document.body.innerText)||'').slice(0,400)`)
           .then((t) => {
             const s = String(t || '');
             const isCaptcha = /访问暂时受限|我不是机器人|are you a robot|robot check/i.test(s);
             const isLoginPage = /Ubisoft WebAuth|WebAuth|登录 创建账号/i.test(s);
-            if (isCaptcha && !isLoginPage) {
-              finish(reject, Object.assign(new Error('育碧风控把当前网络识别成了机器人访问（出口 IP 多为代理/加速器的机房 IP，例如香港节点）。请完全退出 Clash / v2rayN（包括系统代理和 TUN 模式）后重试——官网页面直连家庭宽带即可登录。若页面里有「我不是机器人」验证，也可先完成验证再登。'), { code: 'E_CAPTCHA' }));
+            if (isCaptcha && !isLoginPage && !settled) {
+              logger.warn('育碧窗口命中风控页，注入提示（不关窗）');
+              win.webContents.executeJavaScript(`(
+                function(){
+                  if (document.getElementById('sdnet-notice')) return 0;
+                  var d = document.createElement('div');
+                  d.id = 'sdnet-notice';
+                  d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#b45309;color:#fff;font:12px/1.5 system-ui,sans-serif;padding:9px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+                  d.textContent = '⚠ 育碧风控拦截了当前网络（多为机房/代理 IP，如香港节点）。若本页有「我不是机器人」验证，完成后可继续登录；若没有验证入口，请完全退出 Clash/v2rayN（含 TUN）后关闭本窗重开。点此关闭提示。';
+                  d.onclick = function(){ d.remove(); };
+                  (document.body || document.documentElement).appendChild(d);
+                  return 1;
+                }
+              )()`, true).catch(() => {});
             }
           })
           .catch(() => {});

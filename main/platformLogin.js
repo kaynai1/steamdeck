@@ -24,7 +24,6 @@ const PLATFORMS = {
     // 官方页面走直连：用户实测不开 Clash 官网可登；走代理（香港机房 IP）反而被育碧反爬拦截。
     loginUrl: 'https://account.ubisoft.com/zh-CN/login',
     domain: 'ubisoft.com',
-    directProxy: true,
     // 登录成功后种的会话 Cookie（仅这些名字算数）
     markers: ['UserID', 'sid', 'ubid_main', 'Ubi-Webauth', 'twoStepSid'],
     storeUrl: 'https://store.ubisoft.com/',
@@ -108,23 +107,37 @@ async function statusAll() {
   return out;
 }
 
+/** 在登录窗口里注入「网络受限」提示条（不关闭窗口，保留完成人机验证的机会） */
+const RISK_PAGE_RE = /访问暂时受限|我不是机器人|are you a robot|robot check|unusual traffic|verify you are human/i;
+function injectRiskBanner(win) {
+  try {
+    if (!win || win.isDestroyed()) return;
+    win.webContents.executeJavaScript(`(
+      function(){
+        if (document.getElementById('sdnet-notice')) return 0;
+        var d = document.createElement('div');
+        d.id = 'sdnet-notice';
+        d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#b45309;color:#fff;font:12px/1.5 system-ui,sans-serif;padding:9px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+        d.textContent = '⚠ 平台风控拦截了当前网络（多为机房/代理 IP）。若本页有「我不是机器人」验证，完成它后可继续登录；若没有验证入口，请改用家庭宽带直连环境（完全退出 Clash/v2rayN 含 TUN）后重试。点此关闭。';
+        d.onclick = function(){ d.remove(); };
+        (document.body || document.documentElement).appendChild(d);
+        return 1;
+      }
+    )()`, true).catch(() => {});
+  } catch { /* ignore */ }
+}
+
 /** 打开某平台登录窗口；检测到登录态后自动关闭。
- * 登录窗口走 Chromium 网络栈：优先「登录窗口代理」设置，其次 Windows 系统代理；
- * 育碧/EA/暴雪的登录域名在部分国内网络直连不通（DNS 解析失败），
- * 开系统代理（Clash/v2rayN）即可正常打开。 */
+ * 2026-11 实测结论（育碧/EA/暴雪登录窗口全部强制直连，不再读系统代理）：
+ *  - 三平台登录域名国内直连均可达；
+ *  - 跟随系统代理会产生两类故障：①Clash 已退出但系统代理残留 → ERR_PROXY_CONNECTION_FAILED；
+ *    ②代理出口是机房 IP（香港/IDC）→ 平台风控直接拦截；
+ *  - 因此默认直接直连；仅当直连加载失败时，回退读系统代理再试一次（兼顾必须代理的受限网络）。 */
 async function openLoginWindow(platform, parent) {
   const cfg = cfgOf(platform);
-  // 平台登录域名多数在境外：默认跟随「登录窗口代理 → 系统代理」；
-  // Ubisoft 官方页面除外——实测直连可达，走代理（机房 IP）反而被风控拦截
-  try {
-    const ses = session.fromPartition(cfg.partition);
-    if (cfg.directProxy) {
-      await ses.setProxy({ mode: 'direct' });
-    } else {
-      const proxy = String(store.getSettings().loginProxy || '').trim();
-      await ses.setProxy(proxy ? { mode: 'fixed_servers', proxyRules: proxy } : { mode: 'system' });
-    }
-  } catch { /* setProxy 失败不阻塞（跟随默认） */ }
+  const ses = session.fromPartition(cfg.partition);
+  // ① 强制直连（等真正生效再开窗，避免窗口首个请求仍走旧代理设置）
+  try { await ses.setProxy({ mode: 'direct' }); } catch { /* ignore */ }
 
   return new Promise((resolve, reject) => {
     const win = new BrowserWindow({
@@ -154,23 +167,30 @@ async function openLoginWindow(platform, parent) {
       fn(arg);
     };
 
-    const leftLogin = () => {
-      const url = String(lastUrl || '');
-      if (!url) return false;
-      return !cfg.loginHosts.some((h) => url.includes(h));
-    };
-
     timer = setInterval(async () => {
       try {
-        if (!win.isDestroyed()) lastUrl = win.webContents.getURL();
+        // 只认精确登录判定（平台真实会话 Cookie / 暴雪接口验证）。
+        // 不再用「离开登录页 + Cookie 数量 ≥8」启发式——匿名访问官网就会种 8+ 个跟踪 Cookie，
+        // 会造成「没登录却自动关窗并显示已登录」（2.6.78~2.6.81 的实际故障根源）
         const st = await status(platform);
-        // 命中会话 Cookie，或已经离开登录页且域名 Cookie 明显变多，都视为登录成功
-        if (st.linked || (leftLogin() && st.cookieCount >= 8)) {
-          const final = await status(platform);
-          finish(resolve, final.linked ? final : { ...final, linked: true });
+        if (st.linked) {
+          finish(resolve, st);
         }
       } catch { /* 继续等 */ }
     }, 2500);
+
+    // 风控拦截页：注入提示条但不关窗，给用户完成验证/换网的机会
+    win.webContents.on('did-finish-load', () => {
+      try {
+        if (settled || win.isDestroyed()) return;
+        win.webContents.executeJavaScript(`(document.title||'')+'|'+(((document.body&&document.body.innerText)||'').slice(0,500))`, true)
+          .then((t) => {
+            const s = String(t || '');
+            if (RISK_PAGE_RE.test(s)) injectRiskBanner(win);
+          })
+          .catch(() => {});
+      } catch { /* ignore */ }
+    });
 
     win.on('closed', () => {
       if (!settled) {
@@ -180,13 +200,33 @@ async function openLoginWindow(platform, parent) {
       }
     });
 
-    win.loadURL(cfg.loginUrl).catch((e) => {
+    const friendErr = (raw) => {
+      if (/ERR_PROXY_CONNECTION_FAILED|PROXY/i.test(raw)) {
+        return `${cfg.label} 登录页加载失败：${raw}。原因：电脑上的代理设置指向了一个不可用的地址（常见于 Clash 退出后系统代理开关残留）。已自动改为直连重试；若仍失败，请到系统设置里关闭代理，或开启可用的代理软件。`;
+      }
+      if (/NAME_NOT_RESOLVED|ERR_NAME|TIMED_OUT|ERR_CONNECTION|refused/i.test(raw)) {
+        return `${cfg.label} 登录页直连失败（${raw}）。你的网络环境可能需要代理才能访问：开启 Clash / v2rayN 的「系统代理」后重试（若软件提示风控拦截，换回直连）。`;
+      }
+      return `${cfg.label} 登录页打开失败：${raw}`;
+    };
+
+    win.loadURL(cfg.loginUrl).catch(async (e) => {
       const raw = (e && e.message) || String(e || '加载失败');
-      // DNS 解析失败 / 连接失败：十有八九是直连不通，直接给可操作的指引
-      const hint = /NAME_NOT_RESOLVED|ERR_NAME|TIMED_OUT|ERR_CONNECTION|refused/i.test(raw)
-        ? `${cfg.label} 登录页无法直连（${raw}）。育碧/EA/暴雪的登录域名在部分国内网络直连不通：请开启系统代理（Clash / v2rayN 开「系统代理」）或在软件「设置 → 登录窗口代理」里填入代理端口后重试。`
-        : `${cfg.label} 登录页打开失败：${raw}`;
-      finish(reject, Object.assign(new Error(hint), { code: 'E_LOAD' }));
+      if (settled) return;
+      // ② 直连失败：回退跟随系统代理重试一次（兼顾受限网络环境）
+      if (!win.isDestroyed() && /NAME_NOT_RESOLVED|ERR_NAME|TIMED_OUT|ERR_CONNECTION|refused/i.test(raw)) {
+        try {
+          const proxy = String(store.getSettings().loginProxy || '').trim();
+          await ses.setProxy(proxy ? { mode: 'fixed_servers', proxyRules: proxy } : { mode: 'system' });
+          await win.loadURL(cfg.loginUrl);
+          logger.info('平台登录窗口已回退代理模式', { platform, raw: raw.slice(0, 80) });
+          return;
+        } catch (e2) {
+          finish(reject, Object.assign(new Error(friendErr((e2 && e2.message) || raw)), { code: 'E_LOAD' }));
+          return;
+        }
+      }
+      finish(reject, Object.assign(new Error(friendErr(raw)), { code: 'E_LOAD' }));
     });
   });
 }

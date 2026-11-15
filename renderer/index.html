@@ -894,7 +894,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.80","url":"https://.../SteamDesk-2.6.80-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.80，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.81","url":"https://.../SteamDesk-2.6.81-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.81，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1051,6 +1051,11 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.81 更新特性：</b><br>
+        1. <b>EA / 暴雪登录窗口改为强制直连</b>：修复「ERR_PROXY_CONNECTION_FAILED」——此前这两个窗口跟随 Windows 系统代理，当 Clash 退出但系统代理开关残留（指向已关闭的端口）时登录页打不开；现在和育碧一样默认直连（等直连生效后再开窗），直连失败时才自动回退代理重试；<br>
+        2. <b>风控拦截页不再闪退</b>：育碧/EA/暴雪登录窗口命中「访问暂时受限」风控页时，不再自动关闭，改为在页面顶部注入橙色提示条——若页面有「我不是机器人」验证可直接完成后继续登录；若无验证入口则按提示换网络（家庭宽带直连，完全退出 Clash 含 TUN）后重试；<br>
+        3. <b>登录失败提示全面人话化</b>：代理失败、直连失败分别给出对应原因与操作指引；<br>
+        4. <b>修复「没填账号密码直接显示已登录」的真正根源</b>：EA / 暴雪登录窗口内残留一层宽松判定——官方首页匿名访问会种 8 个以上跟踪 Cookie、页面不在登录域名列表内，就被误判「登录成功」并自动关窗；现在窗口只在命中<b>真实会话 Cookie</b>（EA=remid、暴雪=BA-token/BA-sessionid，暴雪另有接口验真）时才算登录成功；<br>
         <b>v2.6.80 更新特性：</b><br>
         1. <b>修复育碧登录窗口仍被风控</b>：2.6.79 的直连设置是异步的、没等生效就打开了页面，窗口打开瞬间的请求仍可能走系统代理（Clash 香港节点→机房 IP→「访问暂时受限」）；现在先让直连真正生效再打开官方页面，并且每次登录前自动清除上次残留的风控 Cookie（DataDome 会记住"被判机器人"的状态）；<br>
         2. <b>登录页加载失败显示具体错误码</b>：不再白屏，方便排查网络问题；<br>
