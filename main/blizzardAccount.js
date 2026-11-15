@@ -94,6 +94,32 @@ function parseGames(json) {
   return items;
 }
 
+/** 探测会话真伪：games-and-subs 返回 200 才算已登录（10 秒缓存） */
+let verifyCache = { at: 0, result: null };
+async function verifySession() {
+  if (verifyCache.result && Date.now() - verifyCache.at < 10000) return verifyCache.result;
+  let result = { ok: false, loggedIn: false };
+  try {
+    const ses = getSession();
+    const cookies = await battleCookies();
+    const xsrf = cookies.find((c) => c.name === 'XSRF-TOKEN');
+    const headers = {
+      Accept: 'application/json, text/plain, */*',
+      Referer: 'https://account.battle.net/games',
+      'User-Agent': UA,
+    };
+    if (xsrf) {
+      try { headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrf.value); } catch { headers['X-XSRF-TOKEN'] = xsrf.value; }
+    }
+    const res = await net.fetch(GAMES_API, { headers, session: ses });
+    result = { ok: true, loggedIn: res.status === 200 };
+  } catch {
+    result = { ok: false, loggedIn: false };
+  }
+  verifyCache = { at: Date.now(), result };
+  return result;
+}
+
 /** 拉账号拥有的全部游戏（games-and-subs，6 小时缓存） */
 async function fetchLibrary(force) {
   if (!force && libCache && Date.now() - libCache.at < LIB_TTL) {
@@ -145,12 +171,14 @@ async function fetchLibrary(force) {
 /** 退出：清 Cookie（复用 platformLogin）+ 清缓存 */
 async function logout() {
   libCache = null;
+  verifyCache = { at: 0, result: null };
   const pl = require('./platformLogin');
   return pl.logout('blizzard');
 }
 
 function clearCache() {
   libCache = null;
+  verifyCache = { at: 0, result: null };
 }
 
-module.exports = { fetchLibrary, loggedIn, logout, clearCache };
+module.exports = { fetchLibrary, loggedIn, verifySession, logout, clearCache };

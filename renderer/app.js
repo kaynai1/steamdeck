@@ -7718,12 +7718,18 @@ function updateLibCount(filtered) {
   const sub = $('#libSub');
   if (!sub) return;
   if (PLAT_META[S.libSource]) {
-    const st = platState(S.libSource);
-    const total = (st.items || []).length;
-    const label = PLAT_META[S.libSource].label;
-    sub.textContent = S.libQuery.trim()
-      ? `${label} 促销 · 匹配 ${filtered} / ${total} 款`
-      : `${label} 促销精选 · ${total} 款在售`;
+    const platform = S.libSource;
+    if (platform === 'ubisoft') {
+      sub.textContent = S.ubiAccountLib.loggedIn
+        ? `Ubisoft 我的游戏 · ${(S.ubiAccountLib.items || []).length} 个`
+        : 'Ubisoft 我的游戏 · 登录后自动扫描';
+    } else if (platform === 'blizzard') {
+      sub.textContent = S.bnetAccountLib.loggedIn
+        ? `暴雪战网我的游戏 · ${(S.bnetAccountLib.items || []).length} 个`
+        : '暴雪战网我的游戏 · 登录后自动扫描';
+    } else {
+      sub.textContent = 'EA 账号游戏库（官方接口已下线）';
+    }
     return;
   }
   if (S.libSource !== 'steam') {

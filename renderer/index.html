@@ -894,7 +894,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.78","url":"https://.../SteamDesk-2.6.78-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.78，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.79","url":"https://.../SteamDesk-2.6.79-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.79，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1051,6 +1051,10 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.79 更新特性：</b><br>
+        1. <b>育碧登录窗口改直连</b>：此前官方登录窗口跟随了 Clash/系统代理，出口变成香港机房 IP，被育碧风控识别为机器人（「访问暂时受限」页面）；现在官方页面强制直连、和浏览器直登完全一致，命中风控页时会弹出明确指引（提示关闭 Clash 含 TUN 模式）；<br>
+        2. <b>修复 EA / 暴雪「没登录却显示已登录」</b>：登录判定改为精确 Cookie 名单（EA=remid，暴雪=BA-token/BA-sessionid），匿名访问种的 XSRF-TOKEN / sessionTrackingId 等跟踪 Cookie 不再被误判；暴雪还额外用账号接口验真身；<br>
+        3. <b>修复平台页副标题残留</b>：「EA 促销精选 · 0 款在售」等残留字样已清掉，副标题按账号游戏库显示；<br>
         <b>v2.6.78 更新特性：</b><br>
         1. <b>Ubisoft 登录彻底修复</b>：新增「育碧官方登录窗口」——和你在浏览器登录育碧官网完全同一页面（connect.ubisoft.com），国内多数网络可直连、无需 Clash；登录成功自动捕获官方票据并读取「我的游戏」。之前失败的根本原因也查清了：旧版接口域名 public-ubiservices.ice.ubisoft.com 已无 DNS 记录（域名不存在），现已换成实测可达的 public-ubiservices.ubi.com；<br>
         2. <b>暴雪战网「我的游戏」接入</b>：GitHub 调研找到账号页背后的 games-and-subs 接口（BAKLOG 等开源项目同款方案），官方窗口登录战网后自动列出账号拥有的全部暴雪游戏（魔兽世界 / 暗黑破坏神 / 守望先锋 / 炉石传说等）；<br>

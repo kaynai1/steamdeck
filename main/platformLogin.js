@@ -5,11 +5,10 @@
  *
  * 与 GOG 登录同一套路：每个平台一个独立 persist 分区，
  * 用内嵌窗口让用户在官方页面登录，Cookie 只留在本机分区。
- * 登录态检测分两层：
- *   1. 分区里出现平台会话 Cookie（token/session/auth 类命名且值足够长）；
- *   2. 登录窗口的 URL 已离开登录页且域名 Cookie 明显增多。
- * 这些平台没有公开的库/促销 API，登录态先落本机，
- * 供账号管理展示与后续功能（网页领取、库同步）使用。
+ * 登录态检测：只认平台真实登录后才会种的会话 Cookie（精确名单）；
+ * 不能用「名字带 token/session 且够长」的宽松规则——匿名访客也会种
+ * XSRF-TOKEN / sessionTrackingId 等跟踪 Cookie，会造成「没登录却显已登录」。
+ * 暴雪战网额外用 games-and-subs 接口探测真伪。
  */
 
 const { BrowserWindow, session, net } = require('electron');
@@ -21,10 +20,12 @@ const PLATFORMS = {
     label: 'Ubisoft',
     partition: 'persist:plat-ubisoft',
     // 2026-11 实测：login.ubisoft.com 在部分国内网络 DNS 直接解析失败（ERR_NAME_NOT_RESOLVED）；
-    // account.ubisoft.com 实测可达且同样承载登录流程，登录后再 302 到账号中心。
+    // account.ubisoft.com / connect.ubisoft.com 实测可达且同样承载登录流程。
+    // 官方页面走直连：用户实测不开 Clash 官网可登；走代理（香港机房 IP）反而被育碧反爬拦截。
     loginUrl: 'https://account.ubisoft.com/zh-CN/login',
     domain: 'ubisoft.com',
-    // 登录成功后种的会话 Cookie（任一命中即视为已登录）
+    directProxy: true,
+    // 登录成功后种的会话 Cookie（仅这些名字算数）
     markers: ['UserID', 'sid', 'ubid_main', 'Ubi-Webauth', 'twoStepSid'],
     storeUrl: 'https://store.ubisoft.com/',
     loginHosts: ['login.ubisoft.com', 'account.ubisoft.com/login'],
@@ -34,7 +35,9 @@ const PLATFORMS = {
     partition: 'persist:plat-ea',
     loginUrl: 'https://www.ea.com/',
     domain: 'ea.com',
-    markers: ['sauthob', 'sauthdata', 's_sauth'],
+    // EA 真实登录后种的 Cookie（remid 是网关身份票据）；
+    // 匿名访客只有 ak_bmsc / bm_mi / ealocale 等，不能算登录
+    markers: ['remid'],
     storeUrl: 'https://www.ea.com/games',
     loginHosts: ['accounts.ea.com', 'signin.ea.com'],
   },
@@ -43,11 +46,15 @@ const PLATFORMS = {
     partition: 'persist:plat-blizzard',
     loginUrl: 'https://battle.net/login/?loginLocale=zhCN',
     domain: 'battle.net',
+    // BA-token / BA-sessionid 只在登录后出现；匿名访客的 XSRF-TOKEN / sessionTrackingId 不算
     markers: ['BA-token', 'BA-sessionid'],
     storeUrl: 'https://shop.battle.net/',
     loginHosts: ['battle.net/login', 'blizzard.com/login'],
   },
 };
+
+/** 不计入登录判定的噪音 Cookie（跟踪/防跨站/同意类，匿名访问就会种） */
+const IGNORE_COOKIE = /^(XSRF-TOKEN$|sessionTrackingId$|deviceTrackingId$|ak_bmsc$|bm_si$|bm_mi$|bm_sz$|_?ga|Optanon|ealocale$|EDGESCAPE_|int_cookie$|ubisoft_consent)/i;
 
 const COOKIE_MIN_LEN = 24;
 
@@ -57,24 +64,32 @@ function cfgOf(platform) {
   return cfg;
 }
 
-/** 会话类 Cookie 命中判断：名单里的名字，或名字带 token/session/auth 且值够长 */
+/** 会话类 Cookie 命中判断：只认名单里的名字，跟踪/CSRF 类一律排除 */
 function isSessionCookie(c, cfg) {
-  if (cfg.markers.includes(c.name)) return true;
-  if (/token|session|auth/i.test(c.name) && String(c.value || '').length >= COOKIE_MIN_LEN) return true;
-  return false;
+  if (IGNORE_COOKIE.test(c.name)) return false;
+  return cfg.markers.includes(c.name);
 }
 
-/** 登录态：分区里存在该域名的会话 Cookie 即认为已登录 */
+/** 登录态：Cookie 名单命中 + 暴雪战网额外接口探测 */
 async function status(platform) {
   const cfg = cfgOf(platform);
   const ses = session.fromPartition(cfg.partition);
   const cookies = await ses.cookies.get({});
   const domain = cookies.filter((c) => (c.domain || '').replace(/^\./, '').endsWith(cfg.domain));
   const hits = domain.filter((c) => isSessionCookie(c, cfg));
+  let linked = hits.length > 0;
+  // 暴雪战网：匿名访客也会带一堆 cookie，直接用 games-and-subs 接口验真身
+  if (platform === 'blizzard') {
+    try {
+      const v = await require('./blizzardAccount').verifySession();
+      if (v.ok) linked = v.loggedIn;
+      else linked = hits.length > 0;
+    } catch { linked = hits.length > 0; }
+  }
   return {
     platform,
     label: cfg.label,
-    linked: hits.length > 0,
+    linked,
     cookieCount: domain.length,
     storeUrl: cfg.storeUrl,
   };
@@ -99,11 +114,16 @@ async function statusAll() {
  * 开系统代理（Clash/v2rayN）即可正常打开。 */
 async function openLoginWindow(platform, parent) {
   const cfg = cfgOf(platform);
-  // 平台登录域名多数在境外：给这个分区设置代理（loginProxy 优先，否则跟随系统）
+  // 平台登录域名多数在境外：默认跟随「登录窗口代理 → 系统代理」；
+  // Ubisoft 官方页面除外——实测直连可达，走代理（机房 IP）反而被风控拦截
   try {
     const ses = session.fromPartition(cfg.partition);
-    const proxy = String(store.getSettings().loginProxy || '').trim();
-    await ses.setProxy(proxy ? { mode: 'fixed_servers', proxyRules: proxy } : { mode: 'system' });
+    if (cfg.directProxy) {
+      await ses.setProxy({ mode: 'direct' });
+    } else {
+      const proxy = String(store.getSettings().loginProxy || '').trim();
+      await ses.setProxy(proxy ? { mode: 'fixed_servers', proxyRules: proxy } : { mode: 'system' });
+    }
   } catch { /* setProxy 失败不阻塞（跟随默认） */ }
 
   return new Promise((resolve, reject) => {

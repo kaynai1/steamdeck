@@ -165,9 +165,9 @@ function loginWeb(parent) {
 
     try {
       const ses = session.fromPartition(PARTITION);
-      const proxy = String(store.getSettings().loginProxy || '').trim();
-      // 与账号管理网页登录同一分区：之前网页登录种过的 Cookie 可能直接复用
-      Promise.resolve(ses.setProxy(proxy ? { mode: 'fixed_servers', proxyRules: proxy } : { mode: 'system' })).catch(() => {});
+      // 官方页面强制直连：connect.ubisoft.com 国内多数网络可直连；
+      // 走代理（机房 IP）反而会被育碧反爬识别为机器人
+      Promise.resolve(ses.setProxy({ mode: 'direct' })).catch(() => {});
       win = new BrowserWindow({
         width: 500,
         height: 720,
@@ -239,6 +239,22 @@ function loginWeb(parent) {
     win.webContents.on('will-navigate', (_e, url) => { handleUrl(url); });
     win.webContents.on('did-navigate', (_e, url) => { handleUrl(url); });
     win.webContents.on('did-navigate-in-page', (_e, url) => { handleUrl(url); });
+    // 风控页检测：育碧反爬拦截时页面显示「访问暂时受限 / 我不是机器人」，直接给出人话指引
+    win.webContents.on('did-finish-load', () => {
+      try {
+        if (win.isDestroyed()) return;
+        win.webContents.executeJavaScript(`(document.title||'')+'|'+((document.body&&document.body.innerText)||'').slice(0,400)`)
+          .then((t) => {
+            const s = String(t || '');
+            const isCaptcha = /访问暂时受限|我不是机器人|are you a robot|robot check/i.test(s);
+            const isLoginPage = /Ubisoft WebAuth|WebAuth|登录 创建账号/i.test(s);
+            if (isCaptcha && !isLoginPage) {
+              finish(reject, Object.assign(new Error('育碧风控把当前网络识别成了机器人访问（出口 IP 多为代理/加速器的机房 IP，例如香港节点）。请完全退出 Clash / v2rayN（包括系统代理和 TUN 模式）后重试——官网页面直连家庭宽带即可登录。若页面里有「我不是机器人」验证，也可先完成验证再登。'), { code: 'E_CAPTCHA' }));
+            }
+          })
+          .catch(() => {});
+      } catch { /* ignore */ }
+    });
     poll = setInterval(() => {
       try {
         if (!win.isDestroyed()) handleUrl(win.webContents.getURL());
