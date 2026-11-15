@@ -894,7 +894,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.79","url":"https://.../SteamDesk-2.6.79-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.79，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.80","url":"https://.../SteamDesk-2.6.80-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.80，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1051,6 +1051,10 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.80 更新特性：</b><br>
+        1. <b>修复育碧登录窗口仍被风控</b>：2.6.79 的直连设置是异步的、没等生效就打开了页面，窗口打开瞬间的请求仍可能走系统代理（Clash 香港节点→机房 IP→「访问暂时受限」）；现在先让直连真正生效再打开官方页面，并且每次登录前自动清除上次残留的风控 Cookie（DataDome 会记住"被判机器人"的状态）；<br>
+        2. <b>登录页加载失败显示具体错误码</b>：不再白屏，方便排查网络问题；<br>
+        3. <b>EA / 暴雪"没登录却显示已登录"</b>：该修复从 v2.6.79 起生效（精确 Cookie 名单 + 暴雪接口验真身），请确认软件左上角版本号为 2.6.79 及以上；<br>
         <b>v2.6.79 更新特性：</b><br>
         1. <b>育碧登录窗口改直连</b>：此前官方登录窗口跟随了 Clash/系统代理，出口变成香港机房 IP，被育碧风控识别为机器人（「访问暂时受限」页面）；现在官方页面强制直连、和浏览器直登完全一致，命中风控页时会弹出明确指引（提示关闭 Clash 含 TUN 模式）；<br>
         2. <b>修复 EA / 暴雪「没登录却显示已登录」</b>：登录判定改为精确 Cookie 名单（EA=remid，暴雪=BA-token/BA-sessionid），匿名访问种的 XSRF-TOKEN / sessionTrackingId 等跟踪 Cookie 不再被误判；暴雪还额外用账号接口验真身；<br>

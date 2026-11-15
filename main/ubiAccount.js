@@ -148,7 +148,21 @@ function netErrMsg(e) {
 }
 
 /** 官方登录窗口：内嵌 connect.ubisoft.com 官方页面，拦截 change_domain 跳转拿票据 */
-function loginWeb(parent) {
+async function loginWeb(parent) {
+  // ① 先把分区切到直连，并等它真正生效——否则窗口打开瞬间的请求仍会走系统代理（Clash 机房 IP）→ 被育碧风控
+  const ses = session.fromPartition(PARTITION);
+  try { await ses.setProxy({ mode: 'direct' }); } catch { /* ignore */ }
+  // ② 清掉该分区上之前的育碧 Cookie：DataDome 风控 Cookie 会“记住”上次被判机器人的状态，不清会继续弹"访问暂时受限"
+  try {
+    const cookies = await ses.cookies.get({});
+    for (const c of cookies) {
+      const dom = String(c.domain || '').replace(/^\./, '');
+      if (dom.endsWith('ubisoft.com') || dom.endsWith('ubi.com')) {
+        await ses.cookies.remove(`https://${dom}${c.path || '/'}`, c.name).catch(() => {});
+      }
+    }
+  } catch { /* ignore */ }
+
   return new Promise((resolve, reject) => {
     let settled = false;
     let poll = null;
@@ -164,10 +178,6 @@ function loginWeb(parent) {
     };
 
     try {
-      const ses = session.fromPartition(PARTITION);
-      // 官方页面强制直连：connect.ubisoft.com 国内多数网络可直连；
-      // 走代理（机房 IP）反而会被育碧反爬识别为机器人
-      Promise.resolve(ses.setProxy({ mode: 'direct' })).catch(() => {});
       win = new BrowserWindow({
         width: 500,
         height: 720,
@@ -185,6 +195,12 @@ function loginWeb(parent) {
       finish(reject, e);
       return;
     }
+
+    // 加载失败时把具体错误显示给用户（方便排查，而不是白屏）
+    win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+      if (settled || code === -3) return; // -3 = ABORTED（导航中断，如重定向）
+      finish(reject, Object.assign(new Error(`育碧官方登录页加载失败（${desc || code}）${url ? '：' + String(url).slice(0, 80) : ''}`), { code: 'E_LOAD' }));
+    });
 
     /** 从 URL 中解析登录票据 JSON */
     const parseTicketUrl = (raw) => {
