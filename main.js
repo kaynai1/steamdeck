@@ -1181,13 +1181,20 @@ ipcMain.handle('plat:login', wrap(async (platform) =>
   require('./main/platformLogin').openLoginWindow(platform, win)));
 ipcMain.handle('plat:logout', wrap(async (platform) => require('./main/platformLogin').logout(platform)));
 
-/* Ubisoft 账号库：官方 Ubiservices 接口（邮箱+密码登录，读 ownedgames） */
+/* Ubisoft 账号库：官方 Ubiservices 接口（官方登录窗口 / 邮箱密码直连）+ 暴雪战网账号库 */
 ipcMain.handle('ubi:login', wrap(async ({ email, password }) =>
   require('./main/ubiAccount').loginPassword(email, password)));
+ipcMain.handle('ubi:loginWeb', wrap(async () =>
+  require('./main/ubiAccount').loginWeb(win)));
 ipcMain.handle('ubi:login2fa', wrap(async ({ code }) => require('./main/ubiAccount').login2fa(code)));
 ipcMain.handle('ubi:logout', wrap(async () => require('./main/ubiAccount').logoutAccount()));
 ipcMain.handle('ubi:library', wrap(async (force) => require('./main/ubiAccount').fetchLibrary(!!force)));
 ipcMain.handle('ubi:accountStatus', wrap(async () => require('./main/ubiAccount').status()));
+
+/* 暴雪战网账号库：account.battle.net/games-and-subs（登录 Cookie 在平台登录分区） */
+ipcMain.handle('bnet:library', wrap(async (force) =>
+  require('./main/blizzardAccount').fetchLibrary(!!force)));
+ipcMain.handle('bnet:logout', wrap(async () => require('./main/blizzardAccount').logout()));
 
 ipcMain.handle('store:wishlistList', wrap(async () => require('./main/wishlist').list()));
 ipcMain.handle('store:wishlistPrices', wrap(async (items) => require('./main/wishlist').prices(items)));

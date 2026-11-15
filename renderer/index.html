@@ -445,9 +445,9 @@
           <span class="lb" id="libPlatState">平台账号：检测中…</span>
           <button class="btn s" id="libPlatLogin">登录</button>
           <button class="btn s" id="libPlatLogout" style="display:none">退出登录</button>
-          <button class="btn p" id="libPlatRefresh">刷新促销</button>
+          <button class="btn p" id="libPlatRefresh">刷新游戏库</button>
           <span class="sp"></span>
-          <span class="dim2">促销精选来自 CheapShark 聚合（美元报价）；账号登录用内嵌窗口，Cookie 只留本机</span>
+          <span class="dim2">Ubisoft / 暴雪战网登录后自动扫描账号游戏，Cookie 只留本机</span>
         </div>
         <div class="tool" id="libSteamTool">
           <div class="tabs" id="libFilter"></div>
@@ -894,7 +894,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.77","url":"https://.../SteamDesk-2.6.77-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.77，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.78","url":"https://.../SteamDesk-2.6.78-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.78，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1051,6 +1051,11 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.78 更新特性：</b><br>
+        1. <b>Ubisoft 登录彻底修复</b>：新增「育碧官方登录窗口」——和你在浏览器登录育碧官网完全同一页面（connect.ubisoft.com），国内多数网络可直连、无需 Clash；登录成功自动捕获官方票据并读取「我的游戏」。之前失败的根本原因也查清了：旧版接口域名 public-ubiservices.ice.ubisoft.com 已无 DNS 记录（域名不存在），现已换成实测可达的 public-ubiservices.ubi.com；<br>
+        2. <b>暴雪战网「我的游戏」接入</b>：GitHub 调研找到账号页背后的 games-and-subs 接口（BAKLOG 等开源项目同款方案），官方窗口登录战网后自动列出账号拥有的全部暴雪游戏（魔兽世界 / 暗黑破坏神 / 守望先锋 / 炉石传说等）；<br>
+        3. <b>EA 结论说明</b>：EA 云端账号库接口已随 Origin 关停彻底下线（实测返回 Origin has shut down），GitHub 上 Origin 类开源插件依赖的也是同一批已下线接口，EA 页保留说明；<br>
+        4. <b>平台页去掉促销精选</b>：Ubisoft / EA / 暴雪三个游戏库页不再显示促销清单，只保留账号游戏库与登录入口；<br>
         <b>v2.6.77 更新特性：</b><br>
         1. <b>Ubisoft 登录失败改为人话指引</b>：登录、两步验证、拉取游戏库任何一个环节连不上育碧服务器，都不再甩英文报错——统一换成一句话指引：报「域名解析失败 / NAME_NOT_RESOLVED」= 没开代理；① 开 Clash / v2rayN 系统代理，② 或在「设置 → 登录窗口代理」填好代理地址后重试；UU 加速器是进程级加速、对此无效；<br>
         2. <b>登录弹窗提示更新</b>：育碧登录窗口下方新增常见问题说明，登录前就能看到「开代理」提示，不用等报错再排查；<br>
@@ -1201,10 +1206,12 @@
     </div>
     <div class="ask-body" id="ubiLoginForm">
       <ul class="ask-notes">
-        <li>走育碧官方 <b>Ubiservices</b> 接口：登录后读取「我的游戏」清单（ownedgames）。</li>
-        <li>密码只在本次登录请求中出现，之后丢弃；本机只保存会话票据（约 90 天，过期重新登录）。</li>
-        <li><b>报「域名解析失败 / NAME_NOT_RESOLVED」= 没开代理</b>：育碧接口域名国内直连不通，需开启 Clash / v2rayN（系统代理）或填好「设置 → 登录窗口代理」再登录；UU 加速器是进程级加速、对此无效。</li>
+        <li><b>推荐用官方登录窗口</b>：和你在浏览器登录育碧官网完全同一页面，国内多数网络可直连、无需 Clash；两步验证也在官方页面里完成。</li>
+        <li>登录成功后自动读取账号「我的游戏」清单，票据只存本机（长期有效，过期重新登录即可）。</li>
+        <li>下方的邮箱+密码直连走育碧接口，若被育碧反爬拦截（DataDome），请改用官方窗口。</li>
       </ul>
+      <button class="btn p" id="ubiLoginWeb" style="width:100%;justify-content:center;height:34px">打开育碧官方登录窗口（推荐）</button>
+      <div class="dim2" style="text-align:center;font-size:11px;margin:6px 0 2px">—— 或用邮箱 + 密码直连（可能被反爬拦截）——</div>
       <div class="fld"><input type="email" id="ubiEmail" placeholder="邮箱（Ubisoft 账号）" autocomplete="off" /></div>
       <div class="fld"><input type="password" id="ubiPass" placeholder="密码" autocomplete="off" /></div>
       <div id="ubiLoginMsg" class="guard-msg"></div>
