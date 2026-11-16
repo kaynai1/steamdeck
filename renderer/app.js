@@ -7544,6 +7544,51 @@ if ($('#ubiLoginWeb')) {
     loadUbiAccountLib(true);
   };
 }
+/* 浏览器登录取票：内嵌窗口被风控拦截时的备用通道。
+ * ①在你平时能正常登录育碧的浏览器里打开官方登录页；
+ * ②登录完成后复制地址栏完整网址粘贴回来，软件从 URL 里提取登录票据。 */
+if ($('#ubiBrowserOpen')) {
+  $('#ubiBrowserOpen').onclick = async () => {
+    const r = await call(SD.ubi.openBrowserLogin(), { silent: true, noLog: true });
+    if (r.ok) {
+      toast('已在你的默认浏览器打开育碧登录页，登录后复制地址栏网址回来粘贴');
+      const input = $('#ubiTicketUrl');
+      if (input) input.focus();
+    } else {
+      toast(r.message || '打开浏览器失败', true);
+    }
+  };
+}
+if ($('#ubiTicketOk')) {
+  $('#ubiTicketOk').onclick = async () => {
+    const input = $('#ubiTicketUrl');
+    const msgEl = $('#ubiTicketMsg');
+    const url = String((input && input.value) || '').trim();
+    if (!url) {
+      if (msgEl) msgEl.textContent = '请先粘贴登录后的网址';
+      return;
+    }
+    if (!/ubisoft\.com|ubi\.com/i.test(url)) {
+      if (msgEl) msgEl.textContent = '这不是育碧的网址：请复制「登录成功后」浏览器地址栏的完整网址（域名是 connect.ubisoft.com）';
+      return;
+    }
+    const btn = $('#ubiTicketOk');
+    btn.disabled = true;
+    btn.textContent = '提取中…';
+    if (msgEl) msgEl.textContent = '';
+    const r = await call(SD.ubi.loginFromUrl(url), { silent: true });
+    btn.disabled = false;
+    btn.textContent = '提取登录';
+    if (!r.ok) {
+      if (msgEl) msgEl.textContent = r.message || '提取失败';
+      return;
+    }
+    if (input) input.value = '';
+    closeUbiLoginModal();
+    toast(`Ubisoft 已登录${r.data && r.data.name ? '（' + r.data.name + '）' : ''}，正在读取你的游戏库`);
+    loadUbiAccountLib(true);
+  };
+}
 if ($('#ubi2faCancel')) {
   $('#ubi2faCancel').onclick = () => {
     const m = $('#ubi2faModal');

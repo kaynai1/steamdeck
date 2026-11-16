@@ -29,7 +29,7 @@
  * 不存密码；rememberMeTicket 长期有效（约 90 天），票据过期自动用其续期。
  */
 
-const { net, session, BrowserWindow } = require('electron');
+const { net, session, BrowserWindow, shell } = require('electron');
 const store = require('./store');
 const logger = require('./logger');
 
@@ -147,15 +147,108 @@ function netErrMsg(e) {
   return raw;
 }
 
+/** 从 URL 中解析登录票据（三种形态：change_domain/<JSON>、URL 片段 JSON、查询参数） */
+function parseTicketUrl(raw) {
+  const url = String(raw || '');
+  if (!/rememberMeTicket|change_domain|"?ticket"?=/.test(url)) return null;
+  // 形态①：connect.ubisoft.com/change_domain/<编码后的 JSON>（GOG Galaxy 同款）
+  let m = url.match(/change_domain\/(.+)$/);
+  if (m) {
+    let payload = '';
+    try { payload = decodeURIComponent(m[1]); } catch { payload = m[1]; }
+    try {
+      const arr = JSON.parse(payload.startsWith('[') ? payload : `[${payload}]`);
+      if (Array.isArray(arr)) {
+        const hit = arr.find((x) => x && (x.ticket || x.rememberMeTicket));
+        if (hit) return hit;
+      } else if (payload && typeof payload === 'object') {
+        if (payload.ticket || payload.rememberMeTicket) return payload;
+      }
+    } catch { /* 继续尝试其他形态 */ }
+  }
+  // 形态②：URL 各段里形如 JSON 的片段（包括 URL 编码过的）
+  for (const seg of url.split(/[/?&#]/)) {
+    if (!seg || (!seg.includes('%7B') && !seg.includes('{'))) continue;
+    try {
+      const dec = decodeURIComponent(seg);
+      const s = dec.startsWith('[') || dec.startsWith('{') ? dec : `[${dec}]`;
+      const arr = JSON.parse(s);
+      if (Array.isArray(arr)) {
+        const hit = arr.find((x) => x && (x.ticket || x.rememberMeTicket));
+        if (hit) return hit;
+      } else if (arr && typeof arr === 'object' && (arr.ticket || arr.rememberMeTicket)) {
+        return arr;
+      }
+    } catch { /* 试下一段 */ }
+  }
+  // 形态③：查询参数 ?ticket=...&rememberMeTicket=...&userId=...
+  try {
+    const q = new URL(url).searchParams;
+    const ticket = q.get('ticket') || '';
+    const rm = q.get('rememberMeTicket') || '';
+    if (ticket || rm) {
+      return {
+        ticket,
+        rememberMeTicket: rm,
+        userId: q.get('userId') || '',
+        sessionId: q.get('sessionId') || '',
+        nameOnPlatform: q.get('nameOnPlatform') || q.get('username') || '',
+      };
+    }
+  } catch { /* URL 非法则忽略 */ }
+  return null;
+}
+
+/** 把解析出的票据保存为账号会话（loginWeb 与浏览器登录取票共用） */
+async function saveAuth(auth, via) {
+  const acc = {
+    userId: String(auth.userId || ''),
+    ticket: auth.ticket ? String(auth.ticket) : '',
+    rememberMeTicket: auth.rememberMeTicket ? String(auth.rememberMeTicket) : '',
+    sessionId: auth.sessionId ? String(auth.sessionId) : '',
+    name: String(auth.nameOnPlatform || auth.username || ''),
+    at: Date.now(),
+    via,
+  };
+  saveAccount(acc);
+  if (!acc.ticket && acc.rememberMeTicket) {
+    try { await refreshTicket(); } catch (e) {
+      logger.warn('Ubisoft rm_v1 换票失败（拉库时会重试）', { msg: String(e.message || e).slice(0, 160) });
+    }
+  }
+  return { ok: true, name: (account() && account().name) || acc.name, userId: acc.userId };
+}
+
+/** 供用户在默认浏览器登录后回填地址，直接提取票据（绕开内嵌窗口被风控拦截的问题）
+ *  背景：2026-11 实测部分家庭/机房出口 IP（如 120.242.40.60）被育碧 DataDome 拉黑，
+ *  内嵌窗口怎么开都是「访问暂时受限」；但用户自己的浏览器有 Cookie/指纹信任能正常登。
+ *  登录成功后地址栏 URL（change_domain/... 或 ready?rememberMeTicket=...）带票据，
+ *  复制粘贴回来即可完成会话提取。 */
+function openBrowserLogin() {
+  return shell.openExternal(LOGIN_URL);
+}
+
+async function loginFromUrl(rawUrl) {
+  const auth = parseTicketUrl(rawUrl);
+  if (!auth) {
+    throw new Error('这个网址里没有登录票据：请复制「登录成功后浏览器地址栏」的完整网址（会包含 change_domain 或 rememberMeTicket 字样）；若登录后地址栏已经变成普通页面，请重新登录一次并在跳转完成瞬间复制。');
+  }
+  logger.info('Ubisoft 浏览器取票登录成功', { userId: auth.userId });
+  return saveAuth(auth, 'browser');
+}
+
 /** 官方登录窗口：内嵌 connect.ubisoft.com 官方页面，拦截 change_domain 跳转拿票据 */
 async function loginWeb(parent) {
   // ① 先把分区切到直连，并等它真正生效——否则窗口打开瞬间的请求仍会走系统代理（Clash 机房 IP）→ 被育碧风控
   const ses = session.fromPartition(PARTITION);
   try { await ses.setProxy({ mode: 'direct' }); } catch { /* ignore */ }
-  // ② 清掉该分区上之前的育碧 Cookie：DataDome 风控 Cookie 会“记住”上次被判机器人的状态，不清会继续弹"访问暂时受限"
+  // ② 只清「会话类」Cookie（UserID/sid/Ubi-Webauth 等，避免上次登录态干扰），
+  //    保留 DataDome / ubid_main / 同意类 Cookie——它们携带反爬信任，清掉会让每次登录都重新被风控考核
   try {
     const cookies = await ses.cookies.get({});
+    const SESSION_RE = /^(UserID|Ubi-Webauth|twoStepSid)$/i;
     for (const c of cookies) {
+      if (!SESSION_RE.test(c.name)) continue;
       const dom = String(c.domain || '').replace(/^\./, '');
       if (dom.endsWith('ubisoft.com') || dom.endsWith('ubi.com')) {
         await ses.cookies.remove(`https://${dom}${c.path || '/'}`, c.name).catch(() => {});
@@ -202,84 +295,45 @@ async function loginWeb(parent) {
       finish(reject, Object.assign(new Error(`育碧官方登录页加载失败（${desc || code}）${url ? '：' + String(url).slice(0, 80) : ''}`), { code: 'E_LOAD' }));
     });
 
-    /** 从 URL 中解析登录票据 JSON */
-    const parseTicketUrl = (raw) => {
-      const url = String(raw || '');
-      if (!url.includes('rememberMeTicket') && !url.includes('change_domain')) return null;
-      let payload = '';
-      const m = url.match(/change_domain\/(.+)$/);
-      if (m) {
-        try { payload = decodeURIComponent(m[1]); } catch { payload = m[1]; }
-        try {
-          const arr = JSON.parse(payload.startsWith('[') ? payload : `[${payload}]`);
-          if (Array.isArray(arr)) return arr.find((x) => x && (x.ticket || x.rememberMeTicket)) || null;
-        } catch { /* 继续尝试其他形态 */ }
-      }
-      // 兜底：URL 各段里找形如 JSON 的片段
-      for (const seg of url.split(/[/?&#]/)) {
-        if (!seg || (!seg.includes('%7B') && !seg.includes('{'))) continue;
-        try {
-          const dec = decodeURIComponent(seg);
-          const s = dec.startsWith('[') || dec.startsWith('{') ? dec : `[${dec}]`;
-          const arr = JSON.parse(s);
-          if (Array.isArray(arr)) return arr.find((x) => x && (x.ticket || x.rememberMeTicket)) || null;
-          if (arr && (arr.ticket || arr.rememberMeTicket)) return arr;
-        } catch { /* 试下一段 */ }
-      }
-      return null;
-    };
+    /** 从 URL 中解析登录票据（模块级函数，与浏览器取票共用） */
+    const parseLocal = parseTicketUrl;
 
     const handleUrl = async (raw) => {
-      const auth = parseTicketUrl(raw);
+      const auth = parseLocal(raw);
       if (!auth) return;
       logger.info('Ubisoft 官方窗口登录成功', { userId: auth.userId, hasTicket: !!auth.ticket });
-      const acc = {
-        userId: String(auth.userId || ''),
-        ticket: auth.ticket ? String(auth.ticket) : '',
-        rememberMeTicket: auth.rememberMeTicket ? String(auth.rememberMeTicket) : '',
-        sessionId: auth.sessionId ? String(auth.sessionId) : '',
-        name: String(auth.nameOnPlatform || auth.username || ''),
-        at: Date.now(),
-        via: 'web',
-      };
-      saveAccount(acc);
-      // 只有 rememberMeTicket 时立刻换一张正式会话票据（失败不阻塞，拉库时会再试）
-      if (!acc.ticket && acc.rememberMeTicket) {
-        try { await refreshTicket(); } catch (e) {
-          logger.warn('Ubisoft rm_v1 换票失败（拉库时会重试）', { msg: String(e.message || e).slice(0, 160) });
-        }
-      }
-      finish(resolve, { ok: true, name: (account() && account().name) || acc.name, userId: acc.userId });
+      finish(resolve, await saveAuth(auth, 'web'));
     };
 
     win.webContents.on('will-navigate', (_e, url) => { handleUrl(url); });
     win.webContents.on('did-navigate', (_e, url) => { handleUrl(url); });
     win.webContents.on('did-navigate-in-page', (_e, url) => { handleUrl(url); });
-    // 风控页检测：注入提示条但不关窗——保留窗口给用户完成人机验证的机会，
-    // 验证通过官方页面会继续跳转 change_domain，届时正常捕获票据
+    // 风控页检测：页面没有登录表单（邮箱/密码输入框）且出现风控文案 → 注入提示条但不关窗。
+    // 注意不能用标题判断是否登录页：DataDome 风控页的标题仍然是「登录 | Ubisoft WebAuth」。
     win.webContents.on('did-finish-load', () => {
       try {
         if (settled || win.isDestroyed()) return;
-        win.webContents.executeJavaScript(`(document.title||'')+'|'+((document.body&&document.body.innerText)||'').slice(0,400)`)
-          .then((t) => {
-            const s = String(t || '');
-            const isCaptcha = /访问暂时受限|我不是机器人|are you a robot|robot check/i.test(s);
-            const isLoginPage = /Ubisoft WebAuth|WebAuth|登录 创建账号/i.test(s);
-            if (isCaptcha && !isLoginPage && !settled) {
-              logger.warn('育碧窗口命中风控页，注入提示（不关窗）');
-              win.webContents.executeJavaScript(`(
-                function(){
-                  if (document.getElementById('sdnet-notice')) return 0;
-                  var d = document.createElement('div');
-                  d.id = 'sdnet-notice';
-                  d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#b45309;color:#fff;font:12px/1.5 system-ui,sans-serif;padding:9px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
-                  d.textContent = '⚠ 育碧风控拦截了当前网络（多为机房/代理 IP，如香港节点）。若本页有「我不是机器人」验证，完成后可继续登录；若没有验证入口，请完全退出 Clash/v2rayN（含 TUN）后关闭本窗重开。点此关闭提示。';
-                  d.onclick = function(){ d.remove(); };
-                  (document.body || document.documentElement).appendChild(d);
-                  return 1;
-                }
-              )()`, true).catch(() => {});
-            }
+        win.webContents.executeJavaScript(`(function(){
+          var t = (document.body && document.body.innerText) || '';
+          var captcha = /访问暂时受限|我不是机器人|are you a robot|robot check|unusual traffic/i.test(t);
+          var hasForm = !!document.querySelector('input[type=email],input[type=password]');
+          return captcha && !hasForm;
+        })()`, true)
+          .then((needBanner) => {
+            if (!needBanner || settled) return;
+            logger.warn('育碧窗口命中风控页，注入提示（不关窗）');
+            win.webContents.executeJavaScript(`(
+              function(){
+                if (document.getElementById('sdnet-notice')) return 0;
+                var d = document.createElement('div');
+                d.id = 'sdnet-notice';
+                d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#b45309;color:#fff;font:12px/1.5 system-ui,sans-serif;padding:9px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+                d.textContent = '⚠ 育碧风控拦截了当前网络出口（共享/机房 IP 常见）。若本页有「我不是机器人」验证，完成后可继续登录；若没有验证入口，请关闭本窗，改用弹窗里的「用我的浏览器登录」按钮（在你能正常登录育碧的浏览器里完成后，把地址栏网址粘贴回来）。点此关闭提示。';
+                d.onclick = function(){ d.remove(); };
+                (document.body || document.documentElement).appendChild(d);
+                return 1;
+              }
+            )()`, true).catch(() => {});
           })
           .catch(() => {});
       } catch { /* ignore */ }
@@ -557,4 +611,4 @@ function status() {
   };
 }
 
-module.exports = { loginPassword, login2fa, loginWeb, logoutAccount, fetchLibrary, refreshTicket, status, account };
+module.exports = { loginPassword, login2fa, loginWeb, loginFromUrl, openBrowserLogin, logoutAccount, fetchLibrary, refreshTicket, status, account };

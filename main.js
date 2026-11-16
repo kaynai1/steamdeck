@@ -1186,6 +1186,10 @@ ipcMain.handle('ubi:login', wrap(async ({ email, password }) =>
   require('./main/ubiAccount').loginPassword(email, password)));
 ipcMain.handle('ubi:loginWeb', wrap(async () =>
   require('./main/ubiAccount').loginWeb(win)));
+ipcMain.handle('ubi:openBrowserLogin', wrap(async () =>
+  require('./main/ubiAccount').openBrowserLogin()));
+ipcMain.handle('ubi:loginFromUrl', wrap(async ({ url }) =>
+  require('./main/ubiAccount').loginFromUrl(url)));
 ipcMain.handle('ubi:login2fa', wrap(async ({ code }) => require('./main/ubiAccount').login2fa(code)));
 ipcMain.handle('ubi:logout', wrap(async () => require('./main/ubiAccount').logoutAccount()));
 ipcMain.handle('ubi:library', wrap(async (force) => require('./main/ubiAccount').fetchLibrary(!!force)));

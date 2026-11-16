@@ -255,6 +255,8 @@ contextBridge.exposeInMainWorld('api', {
   ubi: {
     login: (email, password) => invoke('ubi:login', { email, password }),
     loginWeb: () => invoke('ubi:loginWeb'),
+    openBrowserLogin: () => invoke('ubi:openBrowserLogin'),
+    loginFromUrl: (url) => invoke('ubi:loginFromUrl', { url }),
     login2fa: (code) => invoke('ubi:login2fa', { code }),
     logout: () => invoke('ubi:logout'),
     library: (force) => invoke('ubi:library', force),
