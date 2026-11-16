@@ -894,7 +894,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.82","url":"https://.../SteamDesk-2.6.82-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.82，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.83","url":"https://.../SteamDesk-2.6.83-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.83，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1051,6 +1051,9 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.83 更新特性：</b><br>
+        1. <b>修复检查更新报「HTTP 403」</b>：GitHub API 匿名额度按 IP 每小时 60 次——开 Clash 系统代理时走机场共享节点，额度被上百人分摊，403 几乎必现。现在检查更新改为三级通道：① 正常检查 → ② 若 403/429 自动用<b>直连出口重试</b>（api.github.com 国内直连多数可达，换成自己的 IP 额度另算）→ ③ 仍不通则走 <b>GitHub Releases RSS 备用源</b>（网页资产、不受 API 限额限制）；<br>
+        2. <b>错误提示人话化</b>：限流时会明确说明「GitHub API 匿名额度用尽，常见于代理/共享出口 IP」，并给出指引，不再是干巴巴的 HTTP 403；<br>
         <b>v2.6.82 更新特性：</b><br>
         1. <b>育碧新增「浏览器登录取票」备用通道</b>：内嵌登录窗口被育碧风控拦截（「访问暂时受限」且无验证入口、换代理也没用）时，点弹窗里的「① 在我的浏览器打开登录页」→ 在你平时能正常登录育碧的浏览器里完成登录 → 「② 复制登录后地址栏的完整网址」粘贴回软件 → 点「提取登录」即完成登录。原理：登录成功的网址里自带官方票据，软件直接提取，绕开内嵌窗口被反爬拦截的问题；<br>
         2. <b>修复风控页提示条从不出现的 bug</b>：此前按「标题含 WebAuth」判断是不是登录页，而风控页的标题同样显示「登录 | Ubisoft WebAuth」，导致提示条永远不注入；现改为按「页面里有没有邮箱/密码输入框」判断——风控页会正确显示橙色的操作提示条；<br>

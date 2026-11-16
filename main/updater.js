@@ -25,7 +25,12 @@ const logger = require('./logger');
 const notify = require('./notify');
 
 const TIMEOUT_MS = 12000;
-const DEFAULT_UPDATE_URL = 'https://api.github.com/repos/kaynai1/steamdeck/releases/latest';
+const REPO_SLUG = 'kaynai1/steamdeck';
+const DEFAULT_UPDATE_URL = `https://api.github.com/repos/${REPO_SLUG}/releases/latest`;
+/* 备用源：GitHub Releases 的 RSS feed（网页资产，不受 API 匿名限额 60次/小时限制）。
+ * 限流场景：api.github.com 匿名额度按 IP 计——走 Clash 等共享节点时几百人分摊额度，
+ * 403 几乎必然；此时直连重试（IP 换成本机出口）；仍 403/失败再走 atom（走代理可达，无限流）。 */
+const ATOM_UPDATE_URL = `https://github.com/${REPO_SLUG}/releases.atom`;
 
 /**
  * 更新事件（main.js 负责转发到渲染进程）:
@@ -64,6 +69,7 @@ function netErrMsg(e) {
  * 为什么不用 Node 的 fetch：它不认 Windows 系统代理，也不认 session.setProxy。
  * -------------------------------------------------------------------------- */
 let updaterSes = null;
+let directSes = null;
 
 async function getUpdaterSession(proxy) {
   if (!updaterSes) updaterSes = session.fromPartition('persist:steamdesk-updater');
@@ -72,6 +78,13 @@ async function getUpdaterSession(proxy) {
     else await updaterSes.setProxy({ mode: 'system' });
   } catch { /* setProxy 失败不阻塞请求 */ }
   return updaterSes;
+}
+
+/** 强制直连的会话（绕开系统代理：用于 API 被 403 限流时换本机出口 IP 重试） */
+async function getDirectSession() {
+  if (!directSes) directSes = session.fromPartition('persist:steamdesk-updater');
+  try { await directSes.setProxy({ mode: 'direct' }); } catch { /* ignore */ }
+  return directSes;
 }
 
 async function updaterFetch(url, opts = {}) {
@@ -102,6 +115,12 @@ async function updaterFetch(url, opts = {}) {
     }
     throw new Error(netErrMsg(e));
   }
+}
+
+/** 直连版本 updaterFetch（不走任何代理；API 限流时换本机出口重试用） */
+async function updaterFetchDirect(url, opts = {}) {
+  const ses = await getDirectSession();
+  return net.fetch(url, { ...opts, session: ses });
 }
 
 function norm(v) {
@@ -155,6 +174,27 @@ function fromGitHubRelease(json) {
   };
 }
 
+/** 从 releases.atom RSS 中提取最新版本号（第一个 entry 即最新 release） */
+function fromAtomFeed(xml) {
+  const s = String(xml || '');
+  if (!s) return null;
+  const idMatch = s.match(/<entry[\s\S]*?<id>\s*tag:github\.com[^<]*?\/(v?[\d][\w.\-]*)\s*<\/id>/);
+  let tag = idMatch ? idMatch[1] : '';
+  if (!tag) {
+    const linkMatch = s.match(/<entry[\s\S]*?releases\/tag\/(v?[\d][\w.\-]*?)["'?<]/);
+    if (linkMatch) tag = linkMatch[1];
+  }
+  if (!tag) return null;
+  const ver = norm(tag);
+  return {
+    version: ver,
+    // 本仓库资产命名固定，直接拼直链；拼错的兼容場景由下载时的 302/404 兑现
+    url: `https://github.com/${REPO_SLUG}/releases/download/v${ver}/SteamDesk-${ver}-setup.exe`,
+    htmlUrl: `https://github.com/${REPO_SLUG}/releases/tag/v${ver}`,
+    notes: '',
+  };
+}
+
 async function check(opts = {}) {
   const s = store.getSettings();
   const customUrl = String(s.updateUrl || '').trim();
@@ -168,7 +208,59 @@ async function check(opts = {}) {
   }
   const headers = { 'User-Agent': 'SteamDesk-Updater' };
   if (/api\.github\.com/.test(url)) headers.Accept = 'application/vnd.github+json';
-  const res = await withTimeout(updaterFetch(url, { redirect: 'follow', headers }), TIMEOUT_MS, '检查更新');
+  let res = await withTimeout(updaterFetch(url, { redirect: 'follow', headers }), TIMEOUT_MS, '检查更新');
+
+  /* ---- 回退①：GitHub API 匿名限流（403/429）时，用直连出口重试一次 ----
+   * 场景：开 Clash 系统代理 → api.github.com 走机场共享节点 → 匿名额度被上百人分摊 → 403。
+   * api.github.com 国内本机直连多数可达，直连就换成自己的 IP，额度另算。 */
+  if ((res.status === 403 || res.status === 429) && /api\.github\.com/.test(url)) {
+    try {
+      const retry = await withTimeout(updaterFetchDirect(url, { redirect: 'follow', headers }), TIMEOUT_MS, '检查更新(直连重试)');
+      if (retry.ok || retry.status === 404) {
+        logger.info('API 限流，直连重试成功', { status: res.status, retryStatus: retry.status });
+        res = retry;
+      }
+    } catch { /* 直连也不通：继续用原响应走回退② */ }
+  }
+
+  /* ---- 回退②：默认源仍 403/429/失败 → releases.atom RSS（网页资产，不受 API 限额） ----
+   * 场景：本机出口 IP 也被限流（运营商共享出口），此时唯一出路是不走 API 的网页源。
+   * 下载直链按本仓库固定命名拼接。 */
+  if ((res.status === 403 || res.status === 429 || !res.ok) && /api\.github\.com/.test(url)) {
+    try {
+      const atomRes = await withTimeout(updaterFetch(ATOM_UPDATE_URL, { redirect: 'follow', headers: { 'User-Agent': 'SteamDesk-Updater' } }), TIMEOUT_MS, '检查更新(RSS)');
+      if (atomRes.ok) {
+        const atomInfo = fromAtomFeed(await atomRes.text());
+        if (atomInfo && atomInfo.version) {
+          logger.info('已用 RSS 备用源取得版本', { via: 'atom', latest: atomInfo.version });
+          const result = {
+            configured: true,
+            usingDefault,
+            current,
+            latest: atomInfo.version,
+            hasUpdate: compare(atomInfo.version, current) > 0,
+            url: atomInfo.url,
+            htmlUrl: atomInfo.htmlUrl,
+            notes: atomInfo.notes || '本次通过 RSS 备用源取得版本（GitHub API 匿名额度用尽时自动切换）；完整更新说明见 GitHub 发布页。',
+            at: Date.now(),
+            via: 'atom',
+          };
+          last = result;
+          store.setSettings({ updateLastCheckAt: result.at, updateLastVersion: result.latest });
+          if (result.hasUpdate) events.emit('found', result);
+          if (result.hasUpdate && opts.notify !== false) {
+            notify.send(`发现新版本 ${result.latest}`, `当前 ${current}。点此打开下载页。`, {
+              onClick: () => {
+                if (result.url) shell.openExternal(result.url).catch(() => {});
+              },
+            });
+          }
+          return result;
+        }
+      }
+    } catch { /* RSS 也不通：走原错误路径 */ }
+  }
+
   /* GitHub 仓库还没有发布 release 时返回 404：不算错误，只是“没有可检查的新版本” */
   if (res.status === 404 && /api\.github\.com/.test(url)) {
     const result = {
@@ -185,7 +277,12 @@ async function check(opts = {}) {
     store.setSettings({ updateLastCheckAt: result.at });
     return result;
   }
-  if (!res.ok) throw new Error(`更新源返回 HTTP ${res.status}`);
+  if (!res.ok) {
+    const hint = (res.status === 403 || res.status === 429)
+      ? `GitHub API 匿名额度用尽（HTTP ${res.status}）——常见于代理/共享出口 IP（如 Clash 机场节点）。直连与 RSS 备用源也都不可用：请稍后再试，或直接到 GitHub Releases 页面下载。`
+      : `更新源返回 HTTP ${res.status}`;
+    throw new Error(hint);
+  }
   const text = await res.text();
   let json = null;
   try {
