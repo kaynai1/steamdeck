@@ -354,10 +354,17 @@ function priceIsZero(text) {
 async function claimViaCheckoutWindow(t, offer) {
   const { BrowserWindow } = require('electron');
   const partition = t.sessionPartition || PARTITION;
+  // Epic 2026 现行结账页 URL：offers 用 1-{namespace}-{offerId} 三段式，
+  // 带 accountId / highlightColor / orderId / purchaseToken（参考 claabs 项目的
+  // generateCheckoutUrl，与官方浏览器流程一致；旧裸 offerId 会被结账页拒收）
+  const offerParam = `1-${offer.namespace}-${offer.offerId}`;
   const url =
     `${CHECKOUT_PAGE}?showNavigation=true` +
     `&namespace=${encodeURIComponent(offer.namespace)}` +
-    `&offers=${encodeURIComponent(offer.offerId)}`;
+    `&offers=${encodeURIComponent(offerParam)}` +
+    `&highlightColor=0078f2&locale=zh-CN` +
+    (t.accountId ? `&accountId=${encodeURIComponent(t.accountId)}` : '') +
+    '&orderId&purchaseToken';
 
   const win = new BrowserWindow({
     show: false,
@@ -443,8 +450,34 @@ async function claimViaCheckoutWindow(t, offer) {
       )
       .catch(() => ({ txt: '', tail: '', alerts: '', hasBtn: false }));
 
+  /** 结账页可能带「最终用户许可协议」勾选框：不勾上，主按钮一直是禁用状态 */
+  const eulaCheck = () =>
+    win.webContents
+      .executeJavaScript(
+        `(() => {
+          const hit = [...document.querySelectorAll('input[type=checkbox]')].find((c) => {
+            if (c.checked) return false;
+            const label = c.closest('label') || c.parentElement || c;
+            return /最终用户许可|End User License|EULA|许可协议/i.test(label.innerText || '');
+          });
+          if (!hit) return false;
+          hit.click();
+          return true;
+        })()`,
+        true
+      )
+      .catch(() => false);
+
   try {
     dlog('checkout start', offer.offerId, 'partition', partition);
+    // 先访问一次商店购物车：结账 API 认的是网页会话 Cookie（EPIC_EG1），
+    // 它只在浏览商店页时下发；直接开结账页会缺 Cookie → 400「Account id is missing」。
+    // 购物车还会触发 Cloudflare 挑战，真实 Chromium 窗口一般几秒内自动通过。
+    try {
+      await win.loadURL('https://store.epicgames.com/cart');
+      await sleep(2500);
+      dlog('cart warmup done', win.webContents.getURL().slice(0, 80));
+    } catch { /* 预热失败不阻塞，直接试结账页 */ }
     await win.loadURL(url);
 
     const vis = await win.webContents
@@ -487,11 +520,28 @@ async function claimViaCheckoutWindow(t, offer) {
         };
       }
 
+      // Cloudflare 挑战页：等它自己过（真实 Chromium 窗口一般 3~8 秒）
+      if (/请稍候|正在验证|Just a moment|Checking your browser|Verifying you are human|cf-chl/i.test(info.txt)) {
+        dlog('tick', i, 'cloudflare challenge, waiting');
+        continue;
+      }
+
+      // 结账页初始化失败：网页会话 Cookie（EPIC_EG1）缺失或过期（含未登录）
+      if (/Account id is missing|发生意外错误|Unexpected error/i.test(`${info.txt} ${info.alerts}`)) {
+        // 已预访购物车仍报这个：网页会话大概率真过期，给用户明确指引
+        revealToUser();
+        return {
+          ok: false,
+          state: 'manual',
+          message: 'Epic 结账页报「Account id is missing」：该账号的网页会话已过期。请在弹出的窗口里登录，或到「账号管理 → Epic」重新登录这个号后再点重试',
+        };
+      }
+
       // 「已经拥有该物品」也算成功：免费条目第一次点就已经入库，
       // 之后的重复点击 Epic 只会弹出这个提示，页面按钮不会变。
       // 只认页面尾部/提示条，避免正文里的「已在库」推荐位误判。
-      if (/已添加|已经添加|已拥有|已经拥有|已在库|购买仍在处理|Added to your library|already own/i.test(info.tail) ||
-          /已添加|已经添加|已拥有|已经拥有|已在库|购买仍在处理|Added to your library|already own/i.test(info.alerts)) {
+      if (/已添加|已经添加|已拥有|已经拥有|已在库|购买仍在处理|感谢您|Added to your library|already own|Thank you/i.test(info.tail) ||
+          /已添加|已经添加|已拥有|已经拥有|已在库|购买仍在处理|感谢您|Added to your library|already own|Thank you/i.test(info.alerts)) {
         return {
           ok: true,
           state: /购买仍在处理|processing/i.test(seen) ? 'pending' : 'claimed',
@@ -524,6 +574,9 @@ async function claimViaCheckoutWindow(t, offer) {
       if (!priceIsZero(info.txt)) {
         return { ok: false, state: 'blocked', message: '结账页显示的不是 0 元，已中止' };
       }
+
+      // 先勾上「最终用户许可协议」（有的游戏结账前要勾，不勾主按钮一直禁用）
+      await eulaCheck();
 
       // 点「添加到库」；有的号会多一步「下订单」确认
       const clicked = (await clickByText(ADD_RE)) || (await clickByText(ORDER_RE));
@@ -574,8 +627,14 @@ async function profileName(t) {
 }
 
 /**
- * 免费领取：直接在官方结账页点「添加到库」。
- * 不再调 quickPurchase——它要显式传国家，账号地区和传入值不一致时会生成卡住的订单。
+ * 免费领取：在官方结账页点「添加到库」。
+ * ★ 2026-11 实测与参考实现（claabs/epicgames-freegames-node，1929★）对齐 ★
+ *   1) 结账 API 认的是网页会话 Cookie（EPIC_EG1）而非 OAuth 令牌——它只在浏览
+ *      商店页时下发。直接开结账页会缺 Cookie → 页面报 400「Account id is missing」。
+ *      所以开结账页前先访问一次商店/购物车（同一分区），让 Epic 下发 EG1。
+ *   2) offers 参数是现行三段式：1-{namespace}-{offerId}（旧裸 offerId 已不被
+ *      结账页接受）；另带 highlightColor / orderId / purchaseToken 标准参数
+ *      与 accountId，与官方浏览器流程一致。
  */
 async function claimOffer(t, offer) {
   return claimViaCheckoutWindow(t, offer);
