@@ -894,7 +894,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.85","url":"https://.../SteamDesk-2.6.85-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.85，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.86","url":"https://.../SteamDesk-2.6.86-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.86，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1051,6 +1051,9 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.86 更新特性：</b><br>
+        1. <b>修复 Epic 登录窗口卡死在授权码页面</b>（本轮用户实测抓到）：登录成功后 Epic 返回的是一段裸 JSON 授权码，Chromium 的 JSON 查看器会给页面加「美观输出」工具栏，工具栏文字混进页面文本导致授权码解析失败，而失败被静默吞掉后没有任何重试——窗口永远停在 JSON 页，账号没保存、登录白做。现在改为：① 宽松提取（整段解析失败就用正则直接提取授权码）；② 事件 + 900ms 轮询双保险，不再只赌一次页面事件；③ URL 查询参数里的授权码也认；<br>
+        2. <b>登录失败的可见化</b>：授权码换令牌失败（如 Epic 临时风控）会明确弹错并关窗，不再无声卡住；<br>
         <b>v2.6.85 更新特性：</b><br>
         1. <b>修复 Epic 免费领取报「Account id is missing」</b>：根因有两个——①结账页参数改版（offers 需用现行三段式 1-{namespace}-{offerId}，旧裸 offerId 已被拒收）；②Epic 结账 API 认的是<b>网页会话 Cookie（EPIC_EG1）</b>而非 OAuth 令牌，这个 Cookie 只在浏览商店页时下发，而领取流程直接开结账页从未访问过商店（参考 claabs/epicgames-freegames-node 的实测结论）。现在领取前自动先访问一次商店购物车预热会话，再按现行格式打开结账页；<br>
         2. <b>领取链路鲁棒性</b>：Cloudflare 挑战页自动等待（真实 Chromium 窗口一般几秒自过）；结账页「最终用户许可协议」勾选框自动勾上（有的游戏不勾主按钮一直禁用）；成功判定补上「感谢您/Thank you」收据页；<br>

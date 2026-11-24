@@ -234,9 +234,11 @@ function openLoginWindow(parent) {
     });
 
     let settled = false;
+    let stopPoll = null;
     const done = (fn, arg) => {
       if (settled) return;
       settled = true;
+      if (stopPoll) { stopPoll(); stopPoll = null; }
       try { if (!win.isDestroyed()) win.close(); } catch { /* ignore */ }
       fn(arg);
     };
@@ -255,21 +257,41 @@ function openLoginWindow(parent) {
       return { accountId: t.accountId, displayName: t.displayName, count: Object.keys(map).length };
     };
 
+    /**
+     * 从当前页面提取授权码并完成登录。
+     * ★ 2026-11 实测踩坑：授权页是一段裸 JSON，Chromium 内建的 JSON 查看器会给页面
+     *   加上「美观输出」工具栏，innerText 因此混入工具栏文字，严格 JSON.parse 直接抛错，
+     *   而错误被静默吞掉后没有任何重试——登录窗口就永远停在 JSON 页上（用户实测卡死）。
+     * 修复：① 宽松提取（整段 parse 失败就用正则直接抠 authorizationCode）；
+     *       ② URL 查询参数里的 code 也认（老 sid 流程会跳 localhost/launcher/authorized）；
+     *       ③ 事件 + 轮询双保险，不再只赌一次 did-finish-load。
+     */
     const grabCode = async () => {
       if (settled) return;
       const url = win.webContents.getURL();
-      if (!url.startsWith(redirectBase)) return;
+      let onRedirect = false;
+      try { onRedirect = new URL(url).pathname === '/id/api/redirect'; } catch { /* ignore */ }
+      if (!onRedirect) return;
       try {
         const text = await win.webContents.executeJavaScript(
           'document.body ? document.body.innerText : ""',
           true
         );
-        const j = JSON.parse(text);
-        if (j && j.authorizationCode) {
+        let j = null;
+        try { j = JSON.parse(String(text)); } catch { /* 混入了查看器工具栏文字，走正则 */ }
+        let code = (j && j.authorizationCode) || '';
+        if (!code) {
+          const m = String(text).match(/"authorizationCode"\s*:\s*"([A-Za-z0-9._-]{16,})"/);
+          if (m) code = m[1];
+        }
+        if (!code) {
+          try { code = new URL(url).searchParams.get('code') || ''; } catch { /* ignore */ }
+        }
+        if (code) {
           try {
             const json = await tokenRequest({
               grant_type: 'authorization_code',
-              code: j.authorizationCode,
+              code,
               token_type: 'eg1',
             });
             done(resolve, saveAccount(toTokens(json)));
@@ -278,16 +300,26 @@ function openLoginWindow(parent) {
           }
           return;
         }
-        if (j && (j.errorCode || j.error)) {
-          done(reject, err('E_EPIC_AUTH', `Epic 返回错误：${j.errorCode || j.error}`));
+        let errCode = (j && (j.errorCode || j.error)) || '';
+        if (!errCode) {
+          const em = String(text).match(/"(?:errorCode|error)"\s*:\s*"([^"]+)"/);
+          if (em) errCode = em[1];
         }
+        if (errCode) {
+          done(reject, err('E_EPIC_AUTH', `Epic 返回错误：${errCode}`));
+        }
+        // JSON 还没渲染好（查看器接管慢）：轮询会再进来，不报错
       } catch {
-        /* 页面还在跳转，等下一次事件 */
+        /* 页面还在跳转，等下一次 */
       }
     };
 
     win.webContents.on('did-finish-load', grabCode);
     win.webContents.on('did-navigate', grabCode);
+    // 轮询兜底：JSON 查看器接管页面的时机不一定触发导航事件
+    const poll = setInterval(() => { grabCode().catch(() => {}); }, 900);
+    stopPoll = () => clearInterval(poll);
+    win.on('closed', () => { if (stopPoll) { stopPoll(); stopPoll = null; } });
 
     win.on('closed', () => {
       if (!settled) {
