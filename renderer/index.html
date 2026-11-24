@@ -894,7 +894,7 @@
       <button class="btn s" id="updateCheckBtn" style="flex:1;justify-content:center">立即检查更新</button>
     </div>
     <div class="fld-hint" id="updateStatus">当前版本读取中…</div>
-    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.83","url":"https://.../SteamDesk-2.6.83-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.83，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
+    <div class="fld-hint">自定义源 JSON 格式：{"version":"2.6.84","url":"https://.../SteamDesk-2.6.84-setup.exe","notes":"更新说明"}。默认源是你的 GitHub 仓库 Releases：发一个新 Release（tag 如 v2.6.84，附上安装包）软件就能检测到。只做提示下载，不会静默替换程序。</div>
 
     <div class="set-sec">备份与恢复</div>
     <div class="rowx" style="gap:8px;margin:6px 0">
@@ -1003,7 +1003,7 @@
       <div class="idt-card-head">
         <div>
           <div class="idt-card-t">上架到 Steam 市场</div>
-          <div class="idt-card-s">按你定的价格挂到 Steam 社区市场出售，挂单需要在 Steam 手机令牌确认。</div>
+          <div class="idt-card-s">按你定的价格挂到 Steam 社区市场出售；导入手机令牌（maFile）后，上架由软件自动确认，无需手机。</div>
         </div>
       </div>
       <div class="idt-sell-row">
@@ -1051,6 +1051,10 @@
         <div class="dim2" style="font-size:11.5px">点「重新检查」联网检查最新版本；默认从 GitHub Releases 检查。</div>
       </div>
       <div class="update-log">
+        <b>v2.6.84 更新特性：</b><br>
+        1. <b>上架前令牌检查</b>：批量上架开始前会检查当前账号是否导入了手机令牌（maFile）——未导入就明确弹窗告知「挂单需要手机确认」，可选择继续或先去导入；已导入则确认弹窗里写明「上架后软件自动确认，无需手机」。此前是挂完单才发现要掏手机；<br>
+        2. <b>导入令牌弹窗补齐「手机官方令牌怎么办」</b>：maFile 无法从手机直接导出——需要用 Steam Desktop Authenticator（SDA）迁移一次生成；弹窗里写清完整步骤与 Steam 的 7 天交易/市场限制期提醒；<br>
+        3. <b>过时文案修正</b>：饰品卡片说明、上架确认弹窗里的「需要在手机令牌确认」改为按实际令牌状态显示（导入=自动确认 / 未导入=手机确认）；<br>
         <b>v2.6.83 更新特性：</b><br>
         1. <b>修复检查更新报「HTTP 403」</b>：GitHub API 匿名额度按 IP 每小时 60 次——开 Clash 系统代理时走机场共享节点，额度被上百人分摊，403 几乎必现。现在检查更新改为三级通道：① 正常检查 → ② 若 403/429 自动用<b>直连出口重试</b>（api.github.com 国内直连多数可达，换成自己的 IP 额度另算）→ ③ 仍不通则走 <b>GitHub Releases RSS 备用源</b>（网页资产、不受 API 限额限制）；<br>
         2. <b>错误提示人话化</b>：限流时会明确说明「GitHub API 匿名额度用尽，常见于代理/共享出口 IP」，并给出指引，不再是干巴巴的 HTTP 403；<br>
@@ -1197,6 +1201,7 @@
       <ul class="ask-notes">
         <li>需要含 <b>identity_secret</b> 的 maFile：Steam Desktop Authenticator（SDA）里对该账号右键 →「导出」→ 选 .maFile。</li>
         <li>SDA 装好后令牌默认存在 <code>%APPDATA%\Steam Desktop Authenticator\maFiles</code>，选文件时会自动定位到那里。</li>
+        <li><b>现在用的是手机官方令牌？</b>maFile 无法直接从手机导出——需要用 SDA 迁移一次：装 SDA → 登录该账号 → 按提示完成短信/邮箱验证 → SDA 接管令牌并生成 maFile，再导入这里。注意 Steam 规则：<b>更换令牌后该账号有 7 天交易/市场限制期</b>，介意的话建议挑闲时迁移。</li>
         <li>找不到文件就把 maFile 的 JSON 内容整段粘到下面，效果一样。</li>
         <li>密钥只存进本机加密区，界面和日志都不会显示原文。</li>
       </ul>

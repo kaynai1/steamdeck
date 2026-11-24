@@ -5345,6 +5345,30 @@ async function executeSell(rows, opts = {}) {
   const gap = Number((S.settings || {}).sellIntervalMs) || 4000;
   const secs = Math.ceil((items.length * gap) / 1000);
 
+  // 令牌状态决定上架后的确认方式：导入过 maFile → 软件内自动确认；
+  // 没导入 → 每件都得手机确认。上架前就把这件事说清楚，而不是挂完单才发现要掏手机。
+  const gs = await guardStatus();
+  if (!gs.linked) {
+    const go = await askConfirm({
+      title: '该账号未导入手机令牌',
+      sub: '上架后的挂单无法在软件内确认，每一件都需要手机 Steam 点确认',
+      tone: 'warn',
+      icon: '⚠',
+      rows: [
+        { k: '当前账号', v: (() => { const sid = String(S.costAcc || S.currentSteamId || ''); const acc = (S.accounts || []).find((a) => String(a.steamId) === sid); return (acc && (acc.personaName || acc.accountName)) || (gs.steamId || '当前账号'); })() },
+        { k: '手机令牌', v: '未导入（maFile）', cls: 'amber' },
+        { k: '本次上架', v: `${items.length} 件 · 上架后需手机确认`, cls: 'amber' },
+      ],
+      notes: [
+        '导入 maFile（令牌文件）后，上架完成软件会自动确认挂单，全程不用手机。',
+        '令牌文件由 Steam Desktop Authenticator（SDA）导出；在手机上用官方令牌的账号，需要先用 SDA 迁移一次（详见「账号管理 → 导入手机令牌」弹窗里的说明）。',
+        '点「仍要上架」按现状继续：挂单后仍需手机确认；或点「取消」先去导入令牌。',
+      ],
+      okText: '仍要上架（需手机确认）',
+    });
+    if (!go) return;
+  }
+
   // 二次确认：把钱数和耗时都说清楚，防止误操作
   const ok = await askConfirm({
     title: `上架 ${items.length} 件物品到 Steam 市场`,
@@ -5360,7 +5384,10 @@ async function executeSell(rows, opts = {}) {
     notes: [
       'Steam 收 5% + 发行商 10%，两边各自最低 ¥0.07；低价物品基本按最低档扣，实际到手以结算为准。',
       '上架是逐件发请求，中途停止不会撤回已经挂上的物品。',
-      '改价需要先下架再重新上架；开启手机令牌的账号还需在确认页点“确认”。',
+      '改价需要先下架再重新上架。',
+      gs.linked
+        ? '该账号已导入手机令牌：上架后软件会自动确认挂单，无需手机操作。'
+        : '该账号未导入手机令牌：挂单后需手机 Steam 确认（见上方提示）。',
     ],
     okText: '确认上架',
   });
